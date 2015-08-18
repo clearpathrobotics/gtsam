@@ -808,7 +808,7 @@ DCS::DCS(double c, const ReweightScheme reweight)
 
 double DCS::weight(double error) const {
   double scale = (2.0*c_)/(c_ + error*error);
-  return scale < 1.0 ? scale*scale : 1.0;
+  return std::min(scale, 1.0);
 }
 
 void DCS::print(const std::string &s="") const {
