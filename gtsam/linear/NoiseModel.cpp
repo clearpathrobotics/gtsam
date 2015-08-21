@@ -696,7 +696,7 @@ Huber::Huber(double k, const ReweightScheme reweight)
 }
 
 double Huber::weight(double error) const {
-  return (error < k_) ? (1.0) : (k_ / fabs(error));
+  return (fabs(error) > k_) ? k_ / fabs(error) : 1.0;
 }
 
 void Huber::print(const std::string &s="") const {
@@ -800,6 +800,34 @@ Welsh::shared_ptr Welsh::Create(double c, const ReweightScheme reweight) {
 }
 
 /* ************************************************************************* */
+// GemanMcClure
+/* ************************************************************************* */
+GemanMcClure::GemanMcClure(double c, const ReweightScheme reweight)
+  : Base(reweight), c_(c) {
+}
+
+double GemanMcClure::weight(double error) const {
+  const double c2 = c_*c_;
+  const double c4 = c2*c2;
+  const double c2error = c2 + error*error;
+  return c4/(c2error*c2error);
+}
+
+void GemanMcClure::print(const std::string &s="") const {
+  std::cout << s << ": Geman-McClure (" << c_ << ")" << std::endl;
+}
+
+bool GemanMcClure::equals(const Base &expected, double tol) const {
+  const GemanMcClure* p = dynamic_cast<const GemanMcClure*>(&expected);
+  if (p == NULL) return false;
+  return fabs(c_ - p->c_) < tol;
+}
+
+GemanMcClure::shared_ptr GemanMcClure::Create(double c, const ReweightScheme reweight) {
+  return shared_ptr(new GemanMcClure(c, reweight));
+}
+
+/* ************************************************************************* */
 // DCS
 /* ************************************************************************* */
 DCS::DCS(double c, const ReweightScheme reweight)
@@ -807,8 +835,14 @@ DCS::DCS(double c, const ReweightScheme reweight)
 }
 
 double DCS::weight(double error) const {
-  double scale = (2.0*c_)/(c_ + error*error);
-  return std::min(scale, 1.0);
+  const double e2 = error*error;
+  if (e2 > c_)
+  {
+    const double w = 2.0*c_/(c_ + e2);
+    return w*w;
+  }
+
+  return 1.0;
 }
 
 void DCS::print(const std::string &s="") const {
