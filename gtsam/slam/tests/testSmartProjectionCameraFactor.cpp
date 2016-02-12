@@ -22,6 +22,7 @@
 #include "smartFactorScenarios.h"
 #include <gtsam/slam/SmartProjectionFactor.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/base/serializationTestHelpers.h>
 #include <CppUnitLite/TestHarness.h>
 #include <boost/assign/std/map.hpp>
 #include <iostream>
@@ -46,7 +47,7 @@ template<class CALIBRATION>
 PinholeCamera<CALIBRATION> perturbCameraPoseAndCalibration(
     const PinholeCamera<CALIBRATION>& camera) {
   GTSAM_CONCEPT_MANIFOLD_TYPE(CALIBRATION)
-  Pose3 noise_pose = Pose3(Rot3::ypr(-M_PI / 10, 0., -M_PI / 10),
+  Pose3 noise_pose = Pose3(Rot3::Ypr(-M_PI / 10, 0., -M_PI / 10),
       Point3(0.5, 0.1, 0.3));
   Pose3 cameraPose = camera.pose();
   Pose3 perturbedCameraPose = cameraPose.compose(noise_pose);
@@ -60,7 +61,7 @@ PinholeCamera<CALIBRATION> perturbCameraPoseAndCalibration(
 /* ************************************************************************* */
 TEST( SmartProjectionCameraFactor, perturbCameraPose) {
   using namespace vanilla;
-  Pose3 noise_pose = Pose3(Rot3::ypr(-M_PI / 10, 0., -M_PI / 10),
+  Pose3 noise_pose = Pose3(Rot3::Ypr(-M_PI / 10, 0., -M_PI / 10),
       Point3(0.5, 0.1, 0.3));
   Pose3 perturbed_level_pose = level_pose.compose(noise_pose);
   Camera actualCamera(perturbed_level_pose, K2);
@@ -72,39 +73,39 @@ TEST( SmartProjectionCameraFactor, perturbCameraPose) {
 /* ************************************************************************* */
 TEST( SmartProjectionCameraFactor, Constructor) {
   using namespace vanilla;
-  SmartFactor::shared_ptr factor1(new SmartFactor());
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
 }
 
 /* ************************************************************************* */
 TEST( SmartProjectionCameraFactor, Constructor2) {
   using namespace vanilla;
   params.setRankTolerance(rankTol);
-  SmartFactor factor1(boost::none, params);
+  SmartFactor factor1(unit2, boost::none, params);
 }
 
 /* ************************************************************************* */
 TEST( SmartProjectionCameraFactor, Constructor3) {
   using namespace vanilla;
-  SmartFactor::shared_ptr factor1(new SmartFactor());
-  factor1->add(measurement1, x1, unit2);
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
+  factor1->add(measurement1, x1);
 }
 
 /* ************************************************************************* */
 TEST( SmartProjectionCameraFactor, Constructor4) {
   using namespace vanilla;
   params.setRankTolerance(rankTol);
-  SmartFactor factor1(boost::none, params);
-  factor1.add(measurement1, x1, unit2);
+  SmartFactor factor1(unit2, boost::none, params);
+  factor1.add(measurement1, x1);
 }
 
 /* ************************************************************************* */
 TEST( SmartProjectionCameraFactor, Equals ) {
   using namespace vanilla;
-  SmartFactor::shared_ptr factor1(new SmartFactor());
-  factor1->add(measurement1, x1, unit2);
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
+  factor1->add(measurement1, x1);
 
-  SmartFactor::shared_ptr factor2(new SmartFactor());
-  factor2->add(measurement1, x1, unit2);
+  SmartFactor::shared_ptr factor2(new SmartFactor(unit2));
+  factor2->add(measurement1, x1);
 }
 
 /* *************************************************************************/
@@ -115,9 +116,9 @@ TEST( SmartProjectionCameraFactor, noiseless ) {
   values.insert(c1, level_camera);
   values.insert(c2, level_camera_right);
 
-  SmartFactor::shared_ptr factor1(new SmartFactor());
-  factor1->add(level_uv, c1, unit2);
-  factor1->add(level_uv_right, c2, unit2);
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
+  factor1->add(level_uv, c1);
+  factor1->add(level_uv_right, c2);
 
   double expectedError = 0.0;
   DOUBLES_EQUAL(expectedError, factor1->error(values), 1e-7);
@@ -140,9 +141,9 @@ TEST( SmartProjectionCameraFactor, noisy ) {
   Camera perturbed_level_camera_right = perturbCameraPose(level_camera_right);
   values.insert(c2, perturbed_level_camera_right);
 
-  SmartFactor::shared_ptr factor1(new SmartFactor());
-  factor1->add(level_uv, c1, unit2);
-  factor1->add(level_uv_right, c2, unit2);
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
+  factor1->add(level_uv, c1);
+  factor1->add(level_uv_right, c2);
 
   // Point is now uninitialized before a triangulation event
   EXPECT(!factor1->point());
@@ -164,20 +165,16 @@ TEST( SmartProjectionCameraFactor, noisy ) {
   Vector actual = factor1->whitenedError(cameras1, point1);
   EXPECT(assert_equal(expected, actual, 1));
 
-  SmartFactor::shared_ptr factor2(new SmartFactor());
+  SmartFactor::shared_ptr factor2(new SmartFactor(unit2));
   vector<Point2> measurements;
   measurements.push_back(level_uv);
   measurements.push_back(level_uv_right);
-
-  vector<SharedNoiseModel> noises;
-  noises.push_back(unit2);
-  noises.push_back(unit2);
 
   vector<Key> views;
   views.push_back(c1);
   views.push_back(c2);
 
-  factor2->add(measurements, views, noises);
+  factor2->add(measurements, views);
 
   double actualError2 = factor2->error(values);
   EXPECT_DOUBLES_EQUAL(expectedError, actualError2, 1);
@@ -195,16 +192,16 @@ TEST( SmartProjectionCameraFactor, perturbPoseAndOptimize ) {
   projectToMultipleCameras(cam1, cam2, cam3, landmark3, measurements_cam3);
 
   // Create and fill smartfactors
-  SmartFactor::shared_ptr smartFactor1(new SmartFactor());
-  SmartFactor::shared_ptr smartFactor2(new SmartFactor());
-  SmartFactor::shared_ptr smartFactor3(new SmartFactor());
+  SmartFactor::shared_ptr smartFactor1(new SmartFactor(unit2));
+  SmartFactor::shared_ptr smartFactor2(new SmartFactor(unit2));
+  SmartFactor::shared_ptr smartFactor3(new SmartFactor(unit2));
   vector<Key> views;
   views.push_back(c1);
   views.push_back(c2);
   views.push_back(c3);
-  smartFactor1->add(measurements_cam1, views, unit2);
-  smartFactor2->add(measurements_cam2, views, unit2);
-  smartFactor3->add(measurements_cam3, views, unit2);
+  smartFactor1->add(measurements_cam1, views);
+  smartFactor2->add(measurements_cam2, views);
+  smartFactor3->add(measurements_cam3, views);
 
   // Create factor graph and add priors on two cameras
   NonlinearFactorGraph graph;
@@ -308,8 +305,8 @@ TEST( SmartProjectionCameraFactor, perturbPoseAndOptimizeFromSfM_tracks ) {
     measures.second = measurements_cam1.at(i);
     track1.measurements.push_back(measures);
   }
-  SmartFactor::shared_ptr smartFactor1(new SmartFactor());
-  smartFactor1->add(track1, unit2);
+  SmartFactor::shared_ptr smartFactor1(new SmartFactor(unit2));
+  smartFactor1->add(track1);
 
   SfM_Track track2;
   for (size_t i = 0; i < 3; ++i) {
@@ -318,11 +315,11 @@ TEST( SmartProjectionCameraFactor, perturbPoseAndOptimizeFromSfM_tracks ) {
     measures.second = measurements_cam2.at(i);
     track2.measurements.push_back(measures);
   }
-  SmartFactor::shared_ptr smartFactor2(new SmartFactor());
-  smartFactor2->add(track2, unit2);
+  SmartFactor::shared_ptr smartFactor2(new SmartFactor(unit2));
+  smartFactor2->add(track2);
 
-  SmartFactor::shared_ptr smartFactor3(new SmartFactor());
-  smartFactor3->add(measurements_cam3, views, unit2);
+  SmartFactor::shared_ptr smartFactor3(new SmartFactor(unit2));
+  smartFactor3->add(measurements_cam3, views);
 
   const SharedDiagonal noisePrior = noiseModel::Isotropic::Sigma(6 + 5, 1e-5);
 
@@ -384,20 +381,20 @@ TEST( SmartProjectionCameraFactor, perturbCamerasAndOptimize ) {
   views.push_back(c2);
   views.push_back(c3);
 
-  SmartFactor::shared_ptr smartFactor1(new SmartFactor());
-  smartFactor1->add(measurements_cam1, views, unit2);
+  SmartFactor::shared_ptr smartFactor1(new SmartFactor(unit2));
+  smartFactor1->add(measurements_cam1, views);
 
-  SmartFactor::shared_ptr smartFactor2(new SmartFactor());
-  smartFactor2->add(measurements_cam2, views, unit2);
+  SmartFactor::shared_ptr smartFactor2(new SmartFactor(unit2));
+  smartFactor2->add(measurements_cam2, views);
 
-  SmartFactor::shared_ptr smartFactor3(new SmartFactor());
-  smartFactor3->add(measurements_cam3, views, unit2);
+  SmartFactor::shared_ptr smartFactor3(new SmartFactor(unit2));
+  smartFactor3->add(measurements_cam3, views);
 
-  SmartFactor::shared_ptr smartFactor4(new SmartFactor());
-  smartFactor4->add(measurements_cam4, views, unit2);
+  SmartFactor::shared_ptr smartFactor4(new SmartFactor(unit2));
+  smartFactor4->add(measurements_cam4, views);
 
-  SmartFactor::shared_ptr smartFactor5(new SmartFactor());
-  smartFactor5->add(measurements_cam5, views, unit2);
+  SmartFactor::shared_ptr smartFactor5(new SmartFactor(unit2));
+  smartFactor5->add(measurements_cam5, views);
 
   const SharedDiagonal noisePrior = noiseModel::Isotropic::Sigma(6 + 5, 1e-5);
 
@@ -464,20 +461,20 @@ TEST( SmartProjectionCameraFactor, Cal3Bundler ) {
   views.push_back(c2);
   views.push_back(c3);
 
-  SmartFactor::shared_ptr smartFactor1(new SmartFactor());
-  smartFactor1->add(measurements_cam1, views, unit2);
+  SmartFactor::shared_ptr smartFactor1(new SmartFactor(unit2));
+  smartFactor1->add(measurements_cam1, views);
 
-  SmartFactor::shared_ptr smartFactor2(new SmartFactor());
-  smartFactor2->add(measurements_cam2, views, unit2);
+  SmartFactor::shared_ptr smartFactor2(new SmartFactor(unit2));
+  smartFactor2->add(measurements_cam2, views);
 
-  SmartFactor::shared_ptr smartFactor3(new SmartFactor());
-  smartFactor3->add(measurements_cam3, views, unit2);
+  SmartFactor::shared_ptr smartFactor3(new SmartFactor(unit2));
+  smartFactor3->add(measurements_cam3, views);
 
-  SmartFactor::shared_ptr smartFactor4(new SmartFactor());
-  smartFactor4->add(measurements_cam4, views, unit2);
+  SmartFactor::shared_ptr smartFactor4(new SmartFactor(unit2));
+  smartFactor4->add(measurements_cam4, views);
 
-  SmartFactor::shared_ptr smartFactor5(new SmartFactor());
-  smartFactor5->add(measurements_cam5, views, unit2);
+  SmartFactor::shared_ptr smartFactor5(new SmartFactor(unit2));
+  smartFactor5->add(measurements_cam5, views);
 
   const SharedDiagonal noisePrior = noiseModel::Isotropic::Sigma(9, 1e-6);
 
@@ -540,20 +537,20 @@ TEST( SmartProjectionCameraFactor, Cal3Bundler2 ) {
   views.push_back(c2);
   views.push_back(c3);
 
-  SmartFactor::shared_ptr smartFactor1(new SmartFactor());
-  smartFactor1->add(measurements_cam1, views, unit2);
+  SmartFactor::shared_ptr smartFactor1(new SmartFactor(unit2));
+  smartFactor1->add(measurements_cam1, views);
 
-  SmartFactor::shared_ptr smartFactor2(new SmartFactor());
-  smartFactor2->add(measurements_cam2, views, unit2);
+  SmartFactor::shared_ptr smartFactor2(new SmartFactor(unit2));
+  smartFactor2->add(measurements_cam2, views);
 
-  SmartFactor::shared_ptr smartFactor3(new SmartFactor());
-  smartFactor3->add(measurements_cam3, views, unit2);
+  SmartFactor::shared_ptr smartFactor3(new SmartFactor(unit2));
+  smartFactor3->add(measurements_cam3, views);
 
-  SmartFactor::shared_ptr smartFactor4(new SmartFactor());
-  smartFactor4->add(measurements_cam4, views, unit2);
+  SmartFactor::shared_ptr smartFactor4(new SmartFactor(unit2));
+  smartFactor4->add(measurements_cam4, views);
 
-  SmartFactor::shared_ptr smartFactor5(new SmartFactor());
-  smartFactor5->add(measurements_cam5, views, unit2);
+  SmartFactor::shared_ptr smartFactor5(new SmartFactor(unit2));
+  smartFactor5->add(measurements_cam5, views);
 
   const SharedDiagonal noisePrior = noiseModel::Isotropic::Sigma(9, 1e-6);
 
@@ -604,9 +601,9 @@ TEST( SmartProjectionCameraFactor, noiselessBundler ) {
   values.insert(c1, level_camera);
   values.insert(c2, level_camera_right);
 
-  SmartFactor::shared_ptr factor1(new SmartFactor());
-  factor1->add(level_uv, c1, unit2);
-  factor1->add(level_uv_right, c2, unit2);
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
+  factor1->add(level_uv, c1);
+  factor1->add(level_uv_right, c2);
 
   double actualError = factor1->error(values);
 
@@ -633,9 +630,9 @@ TEST( SmartProjectionCameraFactor, comparisonGeneralSfMFactor ) {
   values.insert(c2, level_camera_right);
 
   NonlinearFactorGraph smartGraph;
-  SmartFactor::shared_ptr factor1(new SmartFactor());
-  factor1->add(level_uv, c1, unit2);
-  factor1->add(level_uv_right, c2, unit2);
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
+  factor1->add(level_uv, c1);
+  factor1->add(level_uv_right, c2);
   smartGraph.push_back(factor1);
   double expectedError = factor1->error(values);
   double expectedErrorGraph = smartGraph.error(values);
@@ -674,9 +671,9 @@ TEST( SmartProjectionCameraFactor, comparisonGeneralSfMFactor1 ) {
   values.insert(c2, level_camera_right);
 
   NonlinearFactorGraph smartGraph;
-  SmartFactor::shared_ptr factor1(new SmartFactor());
-  factor1->add(level_uv, c1, unit2);
-  factor1->add(level_uv_right, c2, unit2);
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
+  factor1->add(level_uv, c1);
+  factor1->add(level_uv_right, c2);
   smartGraph.push_back(factor1);
   Matrix expectedHessian = smartGraph.linearize(values)->hessian().first;
   Vector expectedInfoVector = smartGraph.linearize(values)->hessian().second;
@@ -765,9 +762,9 @@ TEST( SmartProjectionCameraFactor, computeImplicitJacobian ) {
   values.insert(c1, level_camera);
   values.insert(c2, level_camera_right);
 
-  SmartFactor::shared_ptr factor1(new SmartFactor());
-  factor1->add(level_uv, c1, unit2);
-  factor1->add(level_uv_right, c2, unit2);
+  SmartFactor::shared_ptr factor1(new SmartFactor(unit2));
+  factor1->add(level_uv, c1);
+  factor1->add(level_uv_right, c2);
   Matrix expectedE;
   Vector expectedb;
 
@@ -814,9 +811,9 @@ TEST( SmartProjectionCameraFactor, implicitJacobianFactor ) {
   params.setEnableEPI(useEPI);
 
   SmartFactor::shared_ptr explicitFactor(
-      new SmartFactor(boost::none, params));
-  explicitFactor->add(level_uv, c1, unit2);
-  explicitFactor->add(level_uv_right, c2, unit2);
+      new SmartFactor(unit2, boost::none, params));
+  explicitFactor->add(level_uv, c1);
+  explicitFactor->add(level_uv_right, c2);
 
   GaussianFactor::shared_ptr gaussianHessianFactor = explicitFactor->linearize(
       values);
@@ -826,9 +823,9 @@ TEST( SmartProjectionCameraFactor, implicitJacobianFactor ) {
   // Implicit Schur version
   params.setLinearizationMode(gtsam::IMPLICIT_SCHUR);
   SmartFactor::shared_ptr implicitFactor(
-      new SmartFactor(boost::none, params));
-  implicitFactor->add(level_uv, c1, unit2);
-  implicitFactor->add(level_uv_right, c2, unit2);
+      new SmartFactor(unit2, boost::none, params));
+  implicitFactor->add(level_uv, c1);
+  implicitFactor->add(level_uv_right, c2);
   GaussianFactor::shared_ptr gaussianImplicitSchurFactor =
       implicitFactor->linearize(values);
   CHECK(gaussianImplicitSchurFactor);
@@ -845,6 +842,26 @@ TEST( SmartProjectionCameraFactor, implicitJacobianFactor ) {
   hessianFactor.multiplyHessianAdd(alpha, x, yActual);
   implicitSchurFactor.multiplyHessianAdd(alpha, x, yExpected);
   EXPECT(assert_equal(yActual, yExpected, 1e-7));
+}
+
+
+/* ************************************************************************* */
+BOOST_CLASS_EXPORT_GUID(gtsam::noiseModel::Constrained, "gtsam_noiseModel_Constrained");
+BOOST_CLASS_EXPORT_GUID(gtsam::noiseModel::Diagonal, "gtsam_noiseModel_Diagonal");
+BOOST_CLASS_EXPORT_GUID(gtsam::noiseModel::Gaussian, "gtsam_noiseModel_Gaussian");
+BOOST_CLASS_EXPORT_GUID(gtsam::noiseModel::Unit, "gtsam_noiseModel_Unit");
+BOOST_CLASS_EXPORT_GUID(gtsam::noiseModel::Isotropic, "gtsam_noiseModel_Isotropic");
+BOOST_CLASS_EXPORT_GUID(gtsam::SharedNoiseModel, "gtsam_SharedNoiseModel");
+BOOST_CLASS_EXPORT_GUID(gtsam::SharedDiagonal, "gtsam_SharedDiagonal");
+
+TEST( SmartProjectionCameraFactor, serialize) {
+  using namespace vanilla;
+  using namespace gtsam::serializationTestHelpers;
+  SmartFactor factor(unit2);
+
+  EXPECT(equalsObj(factor));
+  EXPECT(equalsXML(factor));
+  EXPECT(equalsBinary(factor));
 }
 
 /* ************************************************************************* */

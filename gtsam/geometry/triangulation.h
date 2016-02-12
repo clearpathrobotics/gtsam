@@ -19,6 +19,7 @@
 #pragma once
 
 #include <gtsam/geometry/PinholeCamera.h>
+#include <gtsam/geometry/Pose2.h>
 #include <gtsam/slam/TriangulationFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -68,7 +69,7 @@ GTSAM_EXPORT Point3 triangulateDLT(
 /**
  * Create a factor graph with projection factors from poses and one calibration
  * @param poses Camera poses
- * @param sharedCal shared pointer to single calibration object
+ * @param sharedCal shared pointer to single calibration object (monocular only!)
  * @param measurements 2D measurements
  * @param landmarkKey to refer to landmark
  * @param initialEstimate
@@ -97,7 +98,7 @@ std::pair<NonlinearFactorGraph, Values> triangulationGraph(
 /**
  * Create a factor graph with projection factors from pinhole cameras
  * (each camera has a pose and calibration)
- * @param cameras pinhole cameras
+ * @param cameras pinhole cameras (monocular or stereo)
  * @param measurements 2D measurements
  * @param landmarkKey to refer to landmark
  * @param initialEstimate
@@ -106,22 +107,21 @@ std::pair<NonlinearFactorGraph, Values> triangulationGraph(
 template<class CAMERA>
 std::pair<NonlinearFactorGraph, Values> triangulationGraph(
     const std::vector<CAMERA>& cameras,
-    const std::vector<Point2>& measurements, Key landmarkKey,
+    const std::vector<typename CAMERA::Measurement>& measurements, Key landmarkKey,
     const Point3& initialEstimate) {
   Values values;
   values.insert(landmarkKey, initialEstimate); // Initial landmark value
   NonlinearFactorGraph graph;
-  static SharedNoiseModel unit2(noiseModel::Unit::Create(2));
-  static SharedNoiseModel prior_model(noiseModel::Isotropic::Sigma(6, 1e-6));
+  static SharedNoiseModel unit(noiseModel::Unit::Create(CAMERA::Measurement::dimension));
   for (size_t i = 0; i < measurements.size(); i++) {
     const CAMERA& camera_i = cameras[i];
     graph.push_back(TriangulationFactor<CAMERA> //
-        (camera_i, measurements[i], unit2, landmarkKey));
+        (camera_i, measurements[i], unit, landmarkKey));
   }
   return std::make_pair(graph, values);
 }
 
-/// PinholeCamera specific version
+/// PinholeCamera specific version // TODO: (chris) why does this exist?
 template<class CALIBRATION>
 std::pair<NonlinearFactorGraph, Values> triangulationGraph(
     const std::vector<PinholeCamera<CALIBRATION> >& cameras,
@@ -165,7 +165,7 @@ Point3 triangulateNonlinear(const std::vector<Pose3>& poses,
 
 /**
  * Given an initial estimate , refine a point using measurements in several cameras
- * @param cameras pinhole cameras
+ * @param cameras pinhole cameras (monocular or stereo)
  * @param measurements 2D measurements
  * @param initialEstimate
  * @return refined Point3
@@ -173,7 +173,7 @@ Point3 triangulateNonlinear(const std::vector<Pose3>& poses,
 template<class CAMERA>
 Point3 triangulateNonlinear(
     const std::vector<CAMERA>& cameras,
-    const std::vector<Point2>& measurements, const Point3& initialEstimate) {
+    const std::vector<typename CAMERA::Measurement>& measurements, const Point3& initialEstimate) {
 
   // Create a factor graph and initial values
   Values values;
@@ -184,7 +184,7 @@ Point3 triangulateNonlinear(
   return optimize(graph, values, Symbol('p', 0));
 }
 
-/// PinholeCamera specific version
+/// PinholeCamera specific version  // TODO: (chris) why does this exist?
 template<class CALIBRATION>
 Point3 triangulateNonlinear(
     const std::vector<PinholeCamera<CALIBRATION> >& cameras,
@@ -377,6 +377,15 @@ class TriangulationResult: public boost::optional<Point3> {
       status_(s) {
   }
 public:
+
+  /**
+   * Default constructor, only for serialization
+   */
+  TriangulationResult() {}
+
+  /**
+   * Constructor
+   */
   TriangulationResult(const Point3& p) :
       status_(VALID) {
     reset(p);

@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -43,7 +43,7 @@ Vector GPSFactor::evaluateError(const Pose3& p,
     H->block < 3, 3 > (0, 0) << zeros(3, 3);
     H->block < 3, 3 > (0, 3) << p.rotation().matrix();
   }
-  return (p.translation() -nT_).vector();
+  return p.translation().vector() -nT_.vector();
 }
 
 //***************************************************************************
@@ -58,10 +58,10 @@ pair<Pose3, Vector3> GPSFactor::EstimateState(double t1, const Point3& NED1,
 
   // Estimate Rotation
   double yaw = atan2(nV.y(), nV.x());
-  Rot3 nRy = Rot3::yaw(yaw); // yaw frame
+  Rot3 nRy = Rot3::Yaw(yaw); // yaw frame
   Point3 yV = nRy.inverse() * nV; // velocity in yaw frame
   double pitch = -atan2(yV.z(), yV.x()), roll = 0;
-  Rot3 nRb = Rot3::ypr(yaw, pitch, roll);
+  Rot3 nRb = Rot3::Ypr(yaw, pitch, roll);
 
   // Construct initial pose
   Pose3 nTb(nRb, nT); // nTb

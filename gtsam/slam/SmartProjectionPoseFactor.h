@@ -60,15 +60,22 @@ public:
   typedef boost::shared_ptr<This> shared_ptr;
 
   /**
+   * Default constructor, only for serialization
+   */
+  SmartProjectionPoseFactor() {}
+
+  /**
    * Constructor
+   * @param Isotropic measurement noise
    * @param K (fixed) calibration, assumed to be the same for all cameras
    * @param body_P_sensor pose of the camera in the body frame
    * @param params internal parameters of the smart factors
    */
-  SmartProjectionPoseFactor(const boost::shared_ptr<CALIBRATION> K,
+  SmartProjectionPoseFactor(const SharedNoiseModel& sharedNoiseModel,
+      const boost::shared_ptr<CALIBRATION> K,
       const boost::optional<Pose3> body_P_sensor = boost::none,
       const SmartProjectionParams& params = SmartProjectionParams()) :
-      Base(body_P_sensor, params), K_(K) {
+      Base(sharedNoiseModel, body_P_sensor, params), K_(K) {
   }
 
   /** Virtual destructor */

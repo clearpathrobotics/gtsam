@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -34,7 +34,7 @@ typedef PinholeCamera<Cal3_S2> Camera;
 
 static const Cal3_S2 K(625, 625, 0, 0, 0);
 
-static const Pose3 pose(Matrix3(Vector3(1, -1, -1).asDiagonal()), Point3(0, 0, 0.5));
+static const Pose3 pose(Rot3(Vector3(1, -1, -1).asDiagonal()), Point3(0, 0, 0.5));
 static const Camera camera(pose, K);
 
 static const Pose3 pose1(Rot3(), Point3(0, 1, 0.5));
@@ -55,6 +55,21 @@ TEST( PinholeCamera, constructor)
 {
   EXPECT(assert_equal( K, camera.calibration()));
   EXPECT(assert_equal( pose, camera.pose()));
+}
+
+//******************************************************************************
+TEST(PinholeCamera, Create) {
+
+  Matrix actualH1, actualH2;
+  EXPECT(assert_equal(camera, Camera::Create(pose,K, actualH1, actualH2)));
+
+  // Check derivative
+  boost::function<Camera(Pose3,Cal3_S2)> f = //
+      boost::bind(Camera::Create,_1,_2,boost::none,boost::none);
+  Matrix numericalH1 = numericalDerivative21<Camera,Pose3,Cal3_S2>(f,pose,K);
+  EXPECT(assert_equal(numericalH1, actualH1, 1e-9));
+  Matrix numericalH2 = numericalDerivative22<Camera,Pose3,Cal3_S2>(f,pose,K);
+  EXPECT(assert_equal(numericalH2, actualH2, 1e-8));
 }
 
 //******************************************************************************
@@ -242,7 +257,7 @@ TEST( PinholeCamera, Dproject2)
 // Add a test with more arbitrary rotation
 TEST( PinholeCamera, Dproject3)
 {
-  static const Pose3 pose1(Rot3::ypr(0.1, -0.1, 0.4), Point3(0, 0, -10));
+  static const Pose3 pose1(Rot3::Ypr(0.1, -0.1, 0.4), Point3(0, 0, -10));
   static const Camera camera(pose1);
   Matrix Dpose, Dpoint;
   camera.project2(point1, Dpose, Dpoint);

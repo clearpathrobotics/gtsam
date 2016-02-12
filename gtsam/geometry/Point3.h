@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -37,8 +37,8 @@ namespace gtsam {
 
   private:
 
-    double x_, y_, z_;  
-    
+    double x_, y_, z_;
+
   public:
     enum { dimension = 3 };
 
@@ -56,7 +56,7 @@ namespace gtsam {
     /// @{
 
     /// Construct from 3-element vector
-    Point3(const Vector3& v) {
+    explicit Point3(const Vector3& v) {
       x_ = v(0);
       y_ = v(1);
       z_ = v(2);
@@ -82,6 +82,11 @@ namespace gtsam {
     /// inverse
     Point3 operator - () const { return Point3(-x_,-y_,-z_);}
 
+    /// add vector on right
+    inline Point3 operator +(const Vector3& v) const {
+      return Point3(x_ + v[0], y_ + v[1], z_ + v[2]);
+    }
+
     /// add
     Point3 operator + (const Point3& q) const;
 
@@ -99,25 +104,8 @@ namespace gtsam {
     Point3 operator / (double s) const;
 
     /** distance between two points */
-    inline double distance(const Point3& p2,
-        OptionalJacobian<1,3> H1 = boost::none, OptionalJacobian<1,3> H2 = boost::none) const {
-      double d = (p2 - *this).norm();
-      if (H1) {
-        *H1 << x_-p2.x(), y_-p2.y(), z_-p2.z();
-        *H1 = *H1 *(1./d);
-      }
-
-      if (H2) {
-        *H2 << -x_+p2.x(), -y_+p2.y(), -z_+p2.z();
-        *H2 << *H2 *(1./d);
-      }
-      return d;
-    }
-
-    /** @deprecated The following function has been deprecated, use distance above */
-    inline double dist(const Point3& p2) const {
-      return (p2 - *this).norm();
-    }
+    double distance(const Point3& p2, OptionalJacobian<1, 3> H1 = boost::none,
+                    OptionalJacobian<1, 3> H2 = boost::none) const;
 
     /** Distance of the point from the origin, with Jacobian */
     double norm(OptionalJacobian<1,3> H = boost::none) const;
@@ -126,17 +114,19 @@ namespace gtsam {
     Point3 normalize(OptionalJacobian<3, 3> H = boost::none) const;
 
     /** cross product @return this x q */
-    Point3 cross(const Point3 &q) const;
+    Point3 cross(const Point3 &q, OptionalJacobian<3, 3> H_p = boost::none, //
+                                  OptionalJacobian<3, 3> H_q = boost::none) const;
 
     /** dot product @return this * q*/
-    double dot(const Point3 &q) const;
+    double dot(const Point3 &q, OptionalJacobian<1, 3> H_p = boost::none, //
+                                OptionalJacobian<1, 3> H_q = boost::none) const;
 
     /// @}
     /// @name Standard Interface
     /// @{
 
     /// equality
-    bool   operator ==(const Point3& q) const;
+    bool operator ==(const Point3& q) const;
 
     /** return vectorized form (column-wise)*/
     Vector3 vector() const { return Vector3(x_,y_,z_); }
@@ -150,19 +140,12 @@ namespace gtsam {
     /// get z
     inline double z() const {return z_;}
 
-    /** add two points, add(this,q) is same as this + q */
-    Point3 add (const Point3 &q,
-          OptionalJacobian<3, 3> H1=boost::none, OptionalJacobian<3, 3> H2=boost::none) const;
-
-    /** subtract two points, sub(this,q) is same as this - q */
-    Point3 sub (const Point3 &q,
-          OptionalJacobian<3,3> H1=boost::none, OptionalJacobian<3,3> H2=boost::none) const;
-
     /// @}
 
     /// Output stream operator
     GTSAM_EXPORT friend std::ostream &operator<<(std::ostream &os, const Point3& p);
 
+#ifdef GTSAM_ALLOW_DEPRECATED_SINCE_V4
     /// @name Deprecated
     /// @{
     Point3 inverse() const { return -(*this);}
@@ -172,7 +155,13 @@ namespace gtsam {
     Point3 retract(const Vector3& v) const { return compose(Point3(v));}
     static Vector3 Logmap(const Point3& p) { return p.vector();}
     static Point3 Expmap(const Vector3& v) { return Point3(v);}
-    /// @}
+    inline double dist(const Point3& p2) const { return (p2 - *this).norm(); }
+    Point3 add(const Point3& q, OptionalJacobian<3, 3> H1 = boost::none,
+               OptionalJacobian<3, 3> H2 = boost::none) const;
+    Point3 sub(const Point3& q, OptionalJacobian<3, 3> H1 = boost::none,
+               OptionalJacobian<3, 3> H2 = boost::none) const;
+  /// @}
+#endif
 
   private:
 
@@ -191,6 +180,10 @@ namespace gtsam {
 
     /// @}
   };
+
+// Convenience typedef
+typedef std::pair<Point3, Point3> Point3Pair;
+std::ostream &operator<<(std::ostream &os, const gtsam::Point3Pair &p);
 
 /// Syntactic sugar for multiplying coordinates by a scalar s*p
 inline Point3 operator*(double s, const Point3& p) { return p*s;}

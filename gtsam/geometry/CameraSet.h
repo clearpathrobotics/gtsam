@@ -110,20 +110,16 @@ public:
     std::vector<Z> z(m);
 
     // Allocate derivatives
-    if (E)
-      E->resize(ZDim * m, N);
-    if (Fs)
-      Fs->resize(m);
+    if (E) E->resize(ZDim * m, N);
+    if (Fs) Fs->resize(m);
 
     // Project and fill derivatives
     for (size_t i = 0; i < m; i++) {
       MatrixZD Fi;
       Eigen::Matrix<double, ZDim, N> Ei;
       z[i] = this->at(i).project2(point, Fs ? &Fi : 0, E ? &Ei : 0);
-      if (Fs)
-        (*Fs)[i] = Fi;
-      if (E)
-        E->block<ZDim, N>(ZDim * i, 0) = Ei;
+      if (Fs) (*Fs)[i] = Fi;
+      if (E) E->block<ZDim, N>(ZDim * i, 0) = Ei;
     }
 
     return z;
@@ -161,7 +157,7 @@ public:
     for (size_t i = 0; i < m; i++) { // for each camera
 
       const MatrixZD& Fi = Fs[i];
-      const Eigen::Matrix<double, 2, N> Ei_P = //
+      const Eigen::Matrix<double, ZDim, N> Ei_P = //
           E.block(ZDim * i, 0, ZDim, N) * P;
 
       // D = (Dx2) * ZDim
@@ -259,7 +255,6 @@ public:
     // g = F' * (b - E * P * E' * b)
 
     Eigen::Matrix<double, D, D> matrixBlock;
-    typedef SymmetricBlockMatrix::Block Block; ///< A block from the Hessian matrix
 
     // a single point is observed in m cameras
     size_t m = Fs.size(); // cameras observing current point

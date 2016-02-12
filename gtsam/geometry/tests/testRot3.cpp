@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -97,10 +97,10 @@ TEST( Rot3, equals)
 // Notice this uses J^2 whereas fast uses w*w', and has cos(t)*I + ....
 Rot3 slow_but_correct_Rodrigues(const Vector& w) {
   double t = norm_2(w);
-  Matrix J = skewSymmetric(w / t);
+  Matrix3 J = skewSymmetric(w / t);
   if (t < 1e-5) return Rot3();
-  Matrix R = I_3x3 + sin(t) * J + (1.0 - cos(t)) * (J * J);
-  return R;
+  Matrix3 R = I_3x3 + sin(t) * J + (1.0 - cos(t)) * (J * J);
+  return Rot3(R);
 }
 
 /* ************************************************************************* */
@@ -201,7 +201,7 @@ TEST(Rot3, log)
   // Windows and Linux have flipped sign in quaternion mode
 #if !defined(__APPLE__) && defined (GTSAM_USE_QUATERNIONS)
   w = (Vector(3) << x*PI, y*PI, z*PI).finished();
-  R = Rot3::Rodrigues(w); 
+  R = Rot3::Rodrigues(w);
   EXPECT(assert_equal(Vector(-w), Rot3::Logmap(R),1e-12));
 #else
   CHECK_OMEGA(x*PI,y*PI,z*PI)
@@ -244,72 +244,6 @@ TEST(Rot3, retract_localCoordinates2)
   EXPECT(assert_equal(t1, t2.retract(d21)));
 }
 /* ************************************************************************* */
-Vector w = Vector3(0.1, 0.27, -0.2);
-
-// Left trivialization Derivative of exp(w) wrpt w:
-// How does exp(w) change when w changes?
-// We find a y such that: exp(w) exp(y) = exp(w + dw) for dw --> 0
-// => y = log (exp(-w) * exp(w+dw))
-Vector3 testDexpL(const Vector3& dw) {
-  return Rot3::Logmap(Rot3::Expmap(-w) * Rot3::Expmap(w + dw));
-}
-
-TEST( Rot3, ExpmapDerivative) {
-  Matrix actualDexpL = Rot3::ExpmapDerivative(w);
-  Matrix expectedDexpL = numericalDerivative11<Vector3, Vector3>(testDexpL,
-      Vector3::Zero(), 1e-2);
-  EXPECT(assert_equal(expectedDexpL, actualDexpL,1e-7));
-
-  Matrix actualDexpInvL = Rot3::LogmapDerivative(w);
-  EXPECT(assert_equal(expectedDexpL.inverse(), actualDexpInvL,1e-7));
-}
-
-/* ************************************************************************* */
-Vector3 thetahat(0.1, 0, 0.1);
-TEST( Rot3, ExpmapDerivative2)
-{
-  Matrix Jexpected = numericalDerivative11<Rot3, Vector3>(
-      boost::bind(&Rot3::Expmap, _1, boost::none), thetahat);
-
-  Matrix Jactual = Rot3::ExpmapDerivative(thetahat);
-  CHECK(assert_equal(Jexpected, Jactual));
-
-  Matrix Jactual2 = Rot3::ExpmapDerivative(thetahat);
-  CHECK(assert_equal(Jexpected, Jactual2));
-}
-
-/* ************************************************************************* */
-TEST( Rot3, jacobianExpmap )
-{
-  Matrix Jexpected = numericalDerivative11<Rot3, Vector3>(boost::bind(
-      &Rot3::Expmap, _1, boost::none), thetahat);
-  Matrix3 Jactual;
-  const Rot3 R = Rot3::Expmap(thetahat, Jactual);
-  EXPECT(assert_equal(Jexpected, Jactual));
-}
-
-/* ************************************************************************* */
-TEST( Rot3, LogmapDerivative )
-{
-  Rot3 R = Rot3::Expmap(thetahat); // some rotation
-  Matrix Jexpected = numericalDerivative11<Vector,Rot3>(boost::bind(
-      &Rot3::Logmap, _1, boost::none), R);
-  Matrix3 Jactual = Rot3::LogmapDerivative(thetahat);
-  EXPECT(assert_equal(Jexpected, Jactual));
-}
-
-/* ************************************************************************* */
-TEST( Rot3, jacobianLogmap )
-{
-  Rot3 R = Rot3::Expmap(thetahat); // some rotation
-  Matrix Jexpected = numericalDerivative11<Vector,Rot3>(boost::bind(
-      &Rot3::Logmap, _1, boost::none), R);
-  Matrix3 Jactual;
-  Rot3::Logmap(R, Jactual);
-  EXPECT(assert_equal(Jexpected, Jactual));
-}
-
-/* ************************************************************************* */
 TEST(Rot3, manifold_expmap)
 {
   Rot3 gR1 = Rot3::Rodrigues(0.1, 0.4, 0.2);
@@ -340,14 +274,13 @@ TEST(Rot3, manifold_expmap)
 }
 
 /* ************************************************************************* */
-class AngularVelocity: public Point3 {
-public:
-  AngularVelocity(const Point3& p) :
-    Point3(p) {
-  }
-  AngularVelocity(double wx, double wy, double wz) :
-    Point3(wx, wy, wz) {
-  }
+class AngularVelocity : public Vector3 {
+ public:
+  template <typename Derived>
+  inline AngularVelocity(const Eigen::MatrixBase<Derived>& v)
+      : Vector3(v) {}
+
+  AngularVelocity(double wx, double wy, double wz) : Vector3(wx, wy, wz) {}
 };
 
 AngularVelocity bracket(const AngularVelocity& X, const AngularVelocity& Y) {
@@ -360,10 +293,10 @@ TEST(Rot3, BCH)
   // Approximate exmap by BCH formula
   AngularVelocity w1(0.2, -0.1, 0.1);
   AngularVelocity w2(0.01, 0.02, -0.03);
-  Rot3 R1 = Rot3::Expmap (w1.vector()), R2 = Rot3::Expmap (w2.vector());
+  Rot3 R1 = Rot3::Expmap (w1), R2 = Rot3::Expmap (w2);
   Rot3 R3 = R1 * R2;
   Vector expected = Rot3::Logmap(R3);
-  Vector actual = BCH(w1, w2).vector();
+  Vector actual = BCH(w1, w2);
   CHECK(assert_equal(expected, actual,1e-5));
 }
 
@@ -501,17 +434,17 @@ TEST( Rot3, yaw_pitch_roll )
   double t = 0.1;
 
   // yaw is around z axis
-  CHECK(assert_equal(Rot3::Rz(t),Rot3::yaw(t)));
+  CHECK(assert_equal(Rot3::Rz(t),Rot3::Yaw(t)));
 
   // pitch is around y axis
-  CHECK(assert_equal(Rot3::Ry(t),Rot3::pitch(t)));
+  CHECK(assert_equal(Rot3::Ry(t),Rot3::Pitch(t)));
 
   // roll is around x axis
-  CHECK(assert_equal(Rot3::Rx(t),Rot3::roll(t)));
+  CHECK(assert_equal(Rot3::Rx(t),Rot3::Roll(t)));
 
   // Check compound rotation
-  Rot3 expected = Rot3::yaw(0.1) * Rot3::pitch(0.2) * Rot3::roll(0.3);
-  CHECK(assert_equal(expected,Rot3::ypr(0.1,0.2,0.3)));
+  Rot3 expected = Rot3::Yaw(0.1) * Rot3::Pitch(0.2) * Rot3::Roll(0.3);
+  CHECK(assert_equal(expected,Rot3::Ypr(0.1,0.2,0.3)));
 
   CHECK(assert_equal((Vector)Vector3(0.1, 0.2, 0.3),expected.ypr()));
 }
@@ -531,14 +464,14 @@ TEST( Rot3, RQ)
   CHECK(assert_equal(expected,R.xyz(),1e-6));
   CHECK(assert_equal((Vector)Vector3(0.1,0.2,0.3),Rot3::RzRyRx(0.1,0.2,0.3).xyz()));
 
-  // Try using ypr call, asserting that Rot3::ypr(y,p,r).ypr()==[y;p;r]
-  CHECK(assert_equal((Vector)Vector3(0.1,0.2,0.3),Rot3::ypr(0.1,0.2,0.3).ypr()));
-  CHECK(assert_equal((Vector)Vector3(0.3,0.2,0.1),Rot3::ypr(0.1,0.2,0.3).rpy()));
+  // Try using ypr call, asserting that Rot3::Ypr(y,p,r).ypr()==[y;p;r]
+  CHECK(assert_equal((Vector)Vector3(0.1,0.2,0.3),Rot3::Ypr(0.1,0.2,0.3).ypr()));
+  CHECK(assert_equal((Vector)Vector3(0.3,0.2,0.1),Rot3::Ypr(0.1,0.2,0.3).rpy()));
 
   // Try ypr for pure yaw-pitch-roll matrices
-  CHECK(assert_equal((Vector)Vector3(0.1,0.0,0.0),Rot3::yaw (0.1).ypr()));
-  CHECK(assert_equal((Vector)Vector3(0.0,0.1,0.0),Rot3::pitch(0.1).ypr()));
-  CHECK(assert_equal((Vector)Vector3(0.0,0.0,0.1),Rot3::roll (0.1).ypr()));
+  CHECK(assert_equal((Vector)Vector3(0.1,0.0,0.0),Rot3::Yaw (0.1).ypr()));
+  CHECK(assert_equal((Vector)Vector3(0.0,0.1,0.0),Rot3::Pitch(0.1).ypr()));
+  CHECK(assert_equal((Vector)Vector3(0.0,0.0,0.1),Rot3::Roll (0.1).ypr()));
 
   // Try RQ to recover calibration from 3*3 sub-block of projection matrix
   Matrix K = (Matrix(3, 3) << 500.0, 0.0, 320.0, 0.0, 500.0, 240.0, 0.0, 0.0, 1.0).finished();
@@ -594,9 +527,9 @@ TEST(Rot3, quaternion) {
 
   // Check creating Rot3 from quaternion
   EXPECT(assert_equal(R1, Rot3(q1)));
-  EXPECT(assert_equal(R1, Rot3::quaternion(q1.w(), q1.x(), q1.y(), q1.z())));
+  EXPECT(assert_equal(R1, Rot3::Quaternion(q1.w(), q1.x(), q1.y(), q1.z())));
   EXPECT(assert_equal(R2, Rot3(q2)));
-  EXPECT(assert_equal(R2, Rot3::quaternion(q2.w(), q2.x(), q2.y(), q2.z())));
+  EXPECT(assert_equal(R2, Rot3::Quaternion(q2.w(), q2.x(), q2.y(), q2.z())));
 
   // Check converting Rot3 to quaterion
   EXPECT(assert_equal(Vector(R1.toQuaternion().coeffs()), Vector(q1.coeffs())));

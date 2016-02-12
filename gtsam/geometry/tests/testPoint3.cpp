@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -61,12 +61,12 @@ TEST(Point3, Lie) {
 /* ************************************************************************* */
 TEST( Point3, arithmetic) {
   CHECK(P * 3 == 3 * P);
-  CHECK(assert_equal(Point3(-1, -5, -6), -Point3(1, 5, 6)));
-  CHECK(assert_equal(Point3(2, 5, 6), Point3(1, 4, 5) + Point3(1, 1, 1)));
-  CHECK(assert_equal(Point3(0, 3, 4), Point3(1, 4, 5) - Point3(1, 1, 1)));
-  CHECK(assert_equal(Point3(2, 8, 6), Point3(1, 4, 3) * 2));
-  CHECK(assert_equal(Point3(2, 2, 6), 2 * Point3(1, 1, 3)));
-  CHECK(assert_equal(Point3(1, 2, 3), Point3(2, 4, 6) / 2));
+  CHECK(assert_equal<Point3>(Point3(-1, -5, -6), -Point3(1, 5, 6)));
+  CHECK(assert_equal<Point3>(Point3(2, 5, 6), Point3(1, 4, 5) + Point3(1, 1, 1)));
+  CHECK(assert_equal<Point3>(Point3(0, 3, 4), Point3(1, 4, 5) - Point3(1, 1, 1)));
+  CHECK(assert_equal<Point3>(Point3(2, 8, 6), Point3(1, 4, 3) * 2));
+  CHECK(assert_equal<Point3>(Point3(2, 2, 6), 2 * Point3(1, 1, 3)));
+  CHECK(assert_equal<Point3>(Point3(1, 2, 3), Point3(2, 4, 6) / 2));
 }
 
 /* ************************************************************************* */
@@ -131,6 +131,17 @@ TEST (Point3, distance) {
   DOUBLES_EQUAL(expectedDistance, d, 1e-5);
   EXPECT(assert_equal(numH1, H1, 1e-8));
   EXPECT(assert_equal(numH2, H2, 1e-8));
+}
+
+/* ************************************************************************* */
+TEST(Point3, cross) {
+  Matrix aH1, aH2;
+  boost::function<Point3(const Point3&, const Point3&)> f =
+      boost::bind(&Point3::cross, _1, _2, boost::none, boost::none);
+  const Point3 omega(0, 1, 0), theta(4, 6, 8);
+  omega.cross(theta, aH1, aH2);
+  EXPECT(assert_equal(numericalDerivative21(f, omega, theta), aH1));
+  EXPECT(assert_equal(numericalDerivative22(f, omega, theta), aH2));
 }
 
 /* ************************************************************************* */
