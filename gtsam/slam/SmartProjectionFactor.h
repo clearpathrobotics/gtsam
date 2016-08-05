@@ -1,12 +1,12 @@
 /* ----------------------------------------------------------------------------
- 
+
  * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
- 
+
  * See LICENSE for the license information
- 
+
  * -------------------------------------------------------------------------- */
 
 /**
@@ -64,9 +64,9 @@ struct GTSAM_EXPORT SmartProjectionParams {
   // Constructor
   SmartProjectionParams(LinearizationMode linMode = HESSIAN,
       DegeneracyMode degMode = IGNORE_DEGENERACY, bool throwCheirality = false,
-      bool verboseCheirality = false) :
+      bool verboseCheirality = false, double retriangulationTh = 1e-5) :
       linearizationMode(linMode), degeneracyMode(degMode), retriangulationThreshold(
-          1e-5), throwCheirality(throwCheirality), verboseCheirality(
+    		  retriangulationTh), throwCheirality(throwCheirality), verboseCheirality(
           verboseCheirality) {
   }
 
@@ -94,8 +94,14 @@ struct GTSAM_EXPORT SmartProjectionParams {
   bool getThrowCheirality() const {
     return throwCheirality;
   }
+  double getRetriangulationThreshold() const {
+	return retriangulationThreshold;
+  }
   void setLinearizationMode(LinearizationMode linMode) {
     linearizationMode = linMode;
+  }
+  void setRetriangulationThreshold(double retriangulationTh) {
+	retriangulationThreshold = retriangulationTh;
   }
   void setDegeneracyMode(DegeneracyMode degMode) {
     degeneracyMode = degMode;
@@ -111,6 +117,20 @@ struct GTSAM_EXPORT SmartProjectionParams {
   }
   void setDynamicOutlierRejectionThreshold(double dynOutRejectionThreshold) {
     triangulation.dynamicOutlierRejectionThreshold = dynOutRejectionThreshold;
+  }
+
+private:
+
+  /// Serialization function
+  friend class boost::serialization::access;
+  template<class ARCHIVE>
+  void serialize(ARCHIVE & ar, const unsigned int version) {
+    ar & BOOST_SERIALIZATION_NVP(linearizationMode);
+    ar & BOOST_SERIALIZATION_NVP(degeneracyMode);
+    ar & BOOST_SERIALIZATION_NVP(triangulation);
+    ar & BOOST_SERIALIZATION_NVP(retriangulationThreshold);
+    ar & BOOST_SERIALIZATION_NVP(throwCheirality);
+    ar & BOOST_SERIALIZATION_NVP(verboseCheirality);
   }
 };
 
@@ -276,10 +296,10 @@ public:
 
     if (params_.degeneracyMode == ZERO_ON_DEGENERACY && !result_) {
       // failed: return"empty" Hessian
-      BOOST_FOREACH(Matrix& m, Gs)
-        m = zeros(Base::Dim, Base::Dim);
-      BOOST_FOREACH(Vector& v, gs)
-        v = zero(Base::Dim);
+      for(Matrix& m: Gs)
+        m = Matrix::Zero(Base::Dim, Base::Dim);
+      for(Vector& v: gs)
+        v = Vector::Zero(Base::Dim);
       return boost::make_shared<RegularHessianFactor<Base::Dim> >(this->keys_,
           Gs, gs, 0.0);
     }
@@ -463,7 +483,7 @@ public:
     if (nonDegenerate)
       return Base::unwhitenedError(cameras, *result_);
     else
-      return zero(cameras.size() * 2);
+      return Vector::Zero(cameras.size() * 2);
   }
 
   /**
@@ -485,8 +505,8 @@ public:
       return Base::totalReprojectionError(cameras, *result_);
     else if (params_.degeneracyMode == HANDLE_INFINITY) {
       // Otherwise, manage the exceptions with rotation-only factors
-      const Point2& z0 = this->measured_.at(0);
-      Unit3 backprojected = cameras.front().backprojectPointAtInfinity(z0);
+      Unit3 backprojected = cameras.front().backprojectPointAtInfinity(
+          this->measured_.at(0));
       return Base::totalReprojectionError(cameras, backprojected);
     } else
       // if we don't want to manage the exceptions we discard the factor
@@ -514,19 +534,19 @@ public:
   }
 
   /// Is result valid?
-  bool isValid() const {
-    return result_;
-  }
+  bool isValid() const { return result_.valid(); }
 
   /** return the degenerate state */
-  bool isDegenerate() const {
-    return result_.degenerate();
-  }
+  bool isDegenerate() const { return result_.degenerate(); }
 
   /** return the cheirality status flag */
-  bool isPointBehindCamera() const {
-    return result_.behindCamera();
-  }
+  bool isPointBehindCamera() const { return result_.behindCamera(); }
+
+  /** return the outlier state */
+  bool isOutlier() const { return result_.outlier(); }
+
+  /** return the farPoint state */
+  bool isFarPoint() const { return result_.farPoint(); }
 
 private:
 
@@ -535,8 +555,9 @@ private:
   template<class ARCHIVE>
   void serialize(ARCHIVE & ar, const unsigned int version) {
     ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(Base);
-    ar & BOOST_SERIALIZATION_NVP(params_.throwCheirality);
-    ar & BOOST_SERIALIZATION_NVP(params_.verboseCheirality);
+    ar & BOOST_SERIALIZATION_NVP(params_);
+    ar & BOOST_SERIALIZATION_NVP(result_);
+    ar & BOOST_SERIALIZATION_NVP(cameraPosesTriangulation_);
   }
 }
 ;

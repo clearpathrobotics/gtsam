@@ -213,7 +213,7 @@ void getAllCliques(const SymbolicBayesTree::sharedClique& subtree, SymbolicBayes
   if (subtree) {
     cliques.push_back(subtree);
     // Recursive call over all child cliques
-    BOOST_FOREACH(SymbolicBayesTree::sharedClique& childClique, subtree->children) {
+    for(SymbolicBayesTree::sharedClique& childClique: subtree->children) {
       getAllCliques(childClique,cliques);
     }
   }
@@ -231,8 +231,8 @@ TEST( BayesTree, shortcutCheck )
     (SymbolicFactor(_E_, _B_))
     (SymbolicFactor(_F_, _E_))
     (SymbolicFactor(_G_, _F_));
-  SymbolicBayesTree bayesTree = *chain.eliminateMultifrontal(
-    Ordering(list_of(_G_)(_F_)(_E_)(_D_)(_C_)(_B_)(_A_)));
+  Ordering ordering(list_of(_G_)(_F_)(_E_)(_D_)(_C_)(_B_)(_A_));
+  SymbolicBayesTree bayesTree = *chain.eliminateMultifrontal(ordering);
 
   //bayesTree.saveGraph("BT1.dot");
 
@@ -241,7 +241,7 @@ TEST( BayesTree, shortcutCheck )
   SymbolicBayesTree::Cliques allCliques;
   getAllCliques(rootClique,allCliques);
 
-  BOOST_FOREACH(SymbolicBayesTree::sharedClique& clique, allCliques) {
+  for(SymbolicBayesTree::sharedClique& clique: allCliques) {
     //clique->print("Clique#");
     SymbolicBayesNet bn = clique->shortcut(rootClique);
     //bn.print("Shortcut:\n");
@@ -250,13 +250,13 @@ TEST( BayesTree, shortcutCheck )
 
   // Check if all the cached shortcuts are cleared
   rootClique->deleteCachedShortcuts();
-  BOOST_FOREACH(SymbolicBayesTree::sharedClique& clique, allCliques) {
+  for(SymbolicBayesTree::sharedClique& clique: allCliques) {
     bool notCleared = clique->cachedSeparatorMarginal().is_initialized();
     CHECK( notCleared == false);
   }
   EXPECT_LONGS_EQUAL(0, (long)rootClique->numCachedSeparatorMarginals());
 
-//  BOOST_FOREACH(SymbolicBayesTree::sharedClique& clique, allCliques) {
+//  for(SymbolicBayesTree::sharedClique& clique: allCliques) {
 //    clique->print("Clique#");
 //    if(clique->cachedShortcut()){
 //      bn = clique->cachedShortcut().get();
@@ -337,8 +337,8 @@ TEST( BayesTree, removeTop3 )
     (SymbolicFactor(X(4), L(5)))
     (SymbolicFactor(X(2), X(4)))
     (SymbolicFactor(X(3), X(2)));
-  SymbolicBayesTree bayesTree = *graph.eliminateMultifrontal(
-    Ordering(list_of (X(3)) (X(2)) (X(4)) (L(5)) ));
+  Ordering ordering(list_of (X(3)) (X(2)) (X(4)) (L(5)) );
+  SymbolicBayesTree bayesTree = *graph.eliminateMultifrontal(ordering);
 
   // remove all
   SymbolicBayesNet bn;
@@ -361,8 +361,8 @@ TEST( BayesTree, removeTop4 )
     (SymbolicFactor(X(4), L(5)))
     (SymbolicFactor(X(2), X(4)))
     (SymbolicFactor(X(3), X(2)));
-  SymbolicBayesTree bayesTree = *graph.eliminateMultifrontal(
-    Ordering(list_of (X(3)) (X(2)) (X(4)) (L(5)) ));
+  Ordering ordering(list_of (X(3)) (X(2)) (X(4)) (L(5)) );
+  SymbolicBayesTree bayesTree = *graph.eliminateMultifrontal(ordering);
 
   // remove all
   SymbolicBayesNet bn;
@@ -386,8 +386,8 @@ TEST( BayesTree, removeTop5 )
     (SymbolicFactor(X(4), L(5)))
     (SymbolicFactor(X(2), X(4)))
     (SymbolicFactor(X(3), X(2)));
-  SymbolicBayesTree bayesTree = *graph.eliminateMultifrontal(
-    Ordering(list_of (X(3)) (X(2)) (X(4)) (L(5)) ));
+  Ordering ordering(list_of (X(3)) (X(2)) (X(4)) (L(5)) );
+  SymbolicBayesTree bayesTree = *graph.eliminateMultifrontal(ordering);
 
   // Remove nonexistant
   SymbolicBayesNet bn;
@@ -726,6 +726,7 @@ TEST(SymbolicBayesTree, COLAMDvsMETIS) {
     EXPECT(assert_equal(expected, actual));
   }
 
+#ifdef GTSAM_SUPPORT_NESTED_DISSECTION
   // METIS
   {
     Ordering ordering = Ordering::Create(Ordering::METIS, sfg);
@@ -759,6 +760,7 @@ TEST(SymbolicBayesTree, COLAMDvsMETIS) {
     SymbolicBayesTree actual = *sfg.eliminateMultifrontal(ordering);
     EXPECT(assert_equal(expected, actual));
   }
+#endif
 }
 
 /* ************************************************************************* */

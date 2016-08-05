@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -17,7 +17,7 @@
  * @author  Alireza Fathi
  * @author  Richard Roberts
  * @author  Frank Dellaert
- */ 
+ */
 
 #pragma once
 
@@ -141,12 +141,10 @@ namespace gtsam {
     /* return a map of (Key, dimension) */
     std::map<Key, size_t> getKeyDimMap() const;
 
-    std::vector<size_t> getkeydim() const;
-
     /** unnormalized error */
     double error(const VectorValues& x) const {
       double total_error = 0.;
-      BOOST_FOREACH(const sharedFactor& factor, *this){
+      for(const sharedFactor& factor: *this){
         if(factor)
           total_error += factor->error(x);
       }
@@ -247,6 +245,11 @@ namespace gtsam {
      *  to calling graph.eliminateMultifrontal()->optimize(). */
     VectorValues optimize(OptionalOrdering ordering = boost::none,
       const Eliminate& function = EliminationTraitsType::DefaultEliminate) const;
+
+    /**
+     * Optimize using Eigen's dense Cholesky factorization
+     */
+    VectorValues optimizeDensely() const;
 
     /**
      * Compute the gradient of the energy function,

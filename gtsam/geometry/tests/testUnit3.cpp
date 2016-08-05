@@ -33,7 +33,6 @@
 #include <CppUnitLite/TestHarness.h>
 
 #include <boost/bind.hpp>
-#include <boost/foreach.hpp>
 #include <boost/random.hpp>
 #include <boost/assign/std/vector.hpp>
 #include <cmath>
@@ -56,7 +55,7 @@ TEST(Unit3, point3) {
   ps += Point3(1, 0, 0), Point3(0, 1, 0), Point3(0, 0, 1), Point3(1, 1, 0)
       / sqrt(2.0);
   Matrix actualH, expectedH;
-  BOOST_FOREACH(Point3 p,ps) {
+  for(Point3 p: ps) {
     Unit3 s(p);
     expectedH = numericalDerivative11<Point3, Unit3>(point3_, s);
     EXPECT(assert_equal(p, s.point3(actualH), 1e-8));
@@ -237,7 +236,7 @@ TEST(Unit3, distance) {
 TEST(Unit3, localCoordinates0) {
   Unit3 p;
   Vector actual = p.localCoordinates(p);
-  EXPECT(assert_equal(zero(2), actual, 1e-8));
+  EXPECT(assert_equal(Z_2x1, actual, 1e-8));
 }
 
 TEST(Unit3, localCoordinates) {
@@ -245,14 +244,14 @@ TEST(Unit3, localCoordinates) {
     Unit3 p, q;
     Vector2 expected = Vector2::Zero();
     Vector2 actual = p.localCoordinates(q);
-    EXPECT(assert_equal(zero(2), actual, 1e-8));
+    EXPECT(assert_equal((Vector) Z_2x1, actual, 1e-8));
     EXPECT(assert_equal(q, p.retract(expected), 1e-8));
   }
   {
     Unit3 p, q(1, 6.12385e-21, 0);
     Vector2 expected = Vector2::Zero();
     Vector2 actual = p.localCoordinates(q);
-    EXPECT(assert_equal(zero(2), actual, 1e-8));
+    EXPECT(assert_equal((Vector) Z_2x1, actual, 1e-8));
     EXPECT(assert_equal(q, p.retract(expected), 1e-8));
   }
   {
@@ -303,7 +302,7 @@ TEST(Unit3, localCoordinates) {
 }
 
 //*******************************************************************************
-// Wrapper to make basis return a vector6 so we can test numerical derivatives.
+// Wrapper to make basis return a Vector6 so we can test numerical derivatives.
 Vector6 BasisTest(const Unit3& p, OptionalJacobian<6, 2> H) {
   Matrix32 B = p.basis(H);
   Vector6 B_vec;

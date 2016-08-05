@@ -75,6 +75,9 @@ public:
   /// @name Testable
   /// @{
 
+  /// Output stream operator
+  GTSAM_EXPORT friend std::ostream &operator<<(std::ostream &os, const Cal3_S2& cal);
+
   /// print with optional string
   void print(const std::string& s = "Cal3_S2") const;
 
@@ -93,6 +96,11 @@ public:
   /// focal length y
   inline double fy() const {
     return fy_;
+  }
+
+  /// aspect ratio
+  inline double aspectRatio() const {
+    return fx_/fy_;
   }
 
   /// skew

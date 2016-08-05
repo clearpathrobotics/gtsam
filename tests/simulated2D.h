@@ -90,7 +90,7 @@ namespace simulated2D {
 
   /// Prior on a single pose, optionally returns derivative
   inline Point2 prior(const Point2& x, boost::optional<Matrix&> H = boost::none) {
-    if (H) *H = gtsam::eye(2);
+    if (H) *H = I_2x2;
     return x;
   }
 
@@ -102,8 +102,8 @@ namespace simulated2D {
   /// odometry between two poses, optionally returns derivative
   inline Point2 odo(const Point2& x1, const Point2& x2, boost::optional<Matrix&> H1 =
     boost::none, boost::optional<Matrix&> H2 = boost::none) {
-      if (H1) *H1 = -gtsam::eye(2);
-      if (H2) *H2 = gtsam::eye(2);
+      if (H1) *H1 = -I_2x2;
+      if (H2) *H2 = I_2x2;
       return x2 - x1;
   }
 
@@ -115,8 +115,8 @@ namespace simulated2D {
   /// measurement between landmark and pose, optionally returns derivative
   inline Point2 mea(const Point2& x, const Point2& l, boost::optional<Matrix&> H1 =
     boost::none, boost::optional<Matrix&> H2 = boost::none) {
-      if (H1) *H1 = -gtsam::eye(2);
-      if (H2) *H2 = gtsam::eye(2);
+      if (H1) *H1 = -I_2x2;
+      if (H2) *H2 = I_2x2;
       return l - x;
   }
 
@@ -140,7 +140,7 @@ namespace simulated2D {
 
     /// Return error and optional derivative
     Vector evaluateError(const Pose& x, boost::optional<Matrix&> H = boost::none) const {
-      return (prior(x, H) - measured_).vector();
+      return (prior(x, H) - measured_);
     }
 
     virtual ~GenericPrior() {}
@@ -186,7 +186,7 @@ namespace simulated2D {
     Vector evaluateError(const Pose& x1, const Pose& x2,
         boost::optional<Matrix&> H1 = boost::none,
         boost::optional<Matrix&> H2 = boost::none) const {
-      return (odo(x1, x2, H1, H2) - measured_).vector();
+      return (odo(x1, x2, H1, H2) - measured_);
     }
 
     virtual ~GenericOdometry() {}
@@ -233,7 +233,7 @@ namespace simulated2D {
     Vector evaluateError(const Pose& x1, const Landmark& x2,
         boost::optional<Matrix&> H1 = boost::none,
         boost::optional<Matrix&> H2 = boost::none) const {
-      return (mea(x1, x2, H1, H2) - measured_).vector();
+      return (mea(x1, x2, H1, H2) - measured_);
     }
 
     virtual ~GenericMeasurement() {}

@@ -20,20 +20,41 @@ GTSAM_CONCEPT_MANIFOLD_INST(EssentialMatrix)
 
 //*************************************************************************
 // Create two cameras and corresponding essential matrix E
-Rot3 c1Rc2 = Rot3::Yaw(M_PI_2);
-Point3 c1Tc2(0.1, 0, 0);
-EssentialMatrix trueE(c1Rc2, Unit3(c1Tc2));
+Rot3 trueRotation = Rot3::Yaw(M_PI_2);
+Point3 trueTranslation(0.1, 0, 0);
+Unit3 trueDirection(trueTranslation);
+EssentialMatrix trueE(trueRotation, trueDirection);
 
 //*************************************************************************
 TEST (EssentialMatrix, equality) {
-  EssentialMatrix actual(c1Rc2, Unit3(c1Tc2)), expected(c1Rc2, Unit3(c1Tc2));
+  EssentialMatrix actual(trueRotation, trueDirection), expected(trueRotation, trueDirection);
   EXPECT(assert_equal(expected, actual));
 }
 
 //*************************************************************************
+TEST(EssentialMatrix, FromRotationAndDirection) {
+  Matrix actualH1, actualH2;
+  EXPECT(assert_equal(
+      trueE, EssentialMatrix::FromRotationAndDirection(trueRotation, trueDirection, actualH1, actualH2),
+      1e-8));
+
+  Matrix expectedH1 = numericalDerivative11<EssentialMatrix, Rot3>(
+      boost::bind(EssentialMatrix::FromRotationAndDirection, _1, trueDirection, boost::none,
+                  boost::none),
+      trueRotation);
+  EXPECT(assert_equal(expectedH1, actualH1, 1e-7));
+
+  Matrix expectedH2 = numericalDerivative11<EssentialMatrix, Unit3>(
+      boost::bind(EssentialMatrix::FromRotationAndDirection, trueRotation, _1, boost::none,
+                  boost::none),
+                  trueDirection);
+  EXPECT(assert_equal(expectedH2, actualH2, 1e-7));
+}
+
+//*************************************************************************
 TEST (EssentialMatrix, FromPose3) {
-  EssentialMatrix expected(c1Rc2, Unit3(c1Tc2));
-  Pose3 pose(c1Rc2, c1Tc2);
+  EssentialMatrix expected(trueRotation, trueDirection);
+  Pose3 pose(trueRotation, trueTranslation);
   EssentialMatrix actual = EssentialMatrix::FromPose3(pose);
   EXPECT(assert_equal(expected, actual));
 }
@@ -41,7 +62,7 @@ TEST (EssentialMatrix, FromPose3) {
 //*******************************************************************************
 TEST(EssentialMatrix, localCoordinates0) {
   EssentialMatrix E;
-  Vector expected = zero(5);
+  Vector expected = Z_5x1;
   Vector actual = E.localCoordinates(E);
   EXPECT(assert_equal(expected, actual, 1e-8));
 }
@@ -50,10 +71,10 @@ TEST(EssentialMatrix, localCoordinates0) {
 TEST (EssentialMatrix, localCoordinates) {
 
   // Pose between two cameras
-  Pose3 pose(c1Rc2, c1Tc2);
+  Pose3 pose(trueRotation, trueTranslation);
   EssentialMatrix hx = EssentialMatrix::FromPose3(pose);
   Vector actual = hx.localCoordinates(EssentialMatrix::FromPose3(pose));
-  EXPECT(assert_equal(zero(5), actual, 1e-8));
+  EXPECT(assert_equal(Z_5x1, actual, 1e-8));
 
   Vector6 d;
   d << 0.1, 0.2, 0.3, 0, 0, 0;
@@ -64,21 +85,21 @@ TEST (EssentialMatrix, localCoordinates) {
 
 //*************************************************************************
 TEST (EssentialMatrix, retract0) {
-  EssentialMatrix actual = trueE.retract(zero(5));
+  EssentialMatrix actual = trueE.retract(Z_5x1);
   EXPECT(assert_equal(trueE, actual));
 }
 
 //*************************************************************************
 TEST (EssentialMatrix, retract1) {
-  EssentialMatrix expected(c1Rc2.retract(Vector3(0.1, 0, 0)), Unit3(c1Tc2));
+  EssentialMatrix expected(trueRotation.retract(Vector3(0.1, 0, 0)), trueDirection);
   EssentialMatrix actual = trueE.retract((Vector(5) << 0.1, 0, 0, 0, 0).finished());
   EXPECT(assert_equal(expected, actual));
 }
 
 //*************************************************************************
 TEST (EssentialMatrix, retract2) {
-  EssentialMatrix expected(c1Rc2,
-      Unit3(c1Tc2).retract(Vector2(0.1, 0)));
+  EssentialMatrix expected(trueRotation,
+      trueDirection.retract(Vector2(0.1, 0)));
   EssentialMatrix actual = trueE.retract((Vector(5) << 0, 0, 0, 0.1, 0).finished());
   EXPECT(assert_equal(expected, actual));
 }
@@ -124,8 +145,8 @@ TEST (EssentialMatrix, rotate) {
   Rot3 bRc(bX, bZ, -bY), cRb = bRc.inverse();
 
   // Let's compute the ground truth E in body frame:
-  Rot3 b1Rb2 = bRc * c1Rc2 * cRb;
-  Point3 b1Tb2 = bRc * c1Tc2;
+  Rot3 b1Rb2 = bRc * trueRotation * cRb;
+  Point3 b1Tb2 = bRc * trueTranslation;
   EssentialMatrix bodyE(b1Rb2, Unit3(b1Tb2));
   EXPECT(assert_equal(bodyE, bRc * trueE, 1e-8));
   EXPECT(assert_equal(bodyE, trueE.rotate(bRc), 1e-8));
@@ -149,7 +170,7 @@ TEST (EssentialMatrix, rotate) {
 //*************************************************************************
 TEST (EssentialMatrix, FromPose3_a) {
   Matrix actualH;
-  Pose3 pose(c1Rc2, c1Tc2); // Pose between two cameras
+  Pose3 pose(trueRotation, trueTranslation); // Pose between two cameras
   EXPECT(assert_equal(trueE, EssentialMatrix::FromPose3(pose, actualH), 1e-8));
   Matrix expectedH = numericalDerivative11<EssentialMatrix, Pose3>(
       boost::bind(EssentialMatrix::FromPose3, _1, boost::none), pose);
@@ -171,7 +192,7 @@ TEST (EssentialMatrix, FromPose3_b) {
 
 //*************************************************************************
 TEST (EssentialMatrix, streaming) {
-  EssentialMatrix expected(c1Rc2, Unit3(c1Tc2)), actual;
+  EssentialMatrix expected(trueRotation, trueDirection), actual;
   stringstream ss;
   ss << expected;
   ss >> actual;

@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -18,8 +18,6 @@
 #include <gtsam/geometry/Pose2.h>
 #include <gtsam/base/Testable.h>
 #include <gtsam/base/concepts.h>
-
-#include <boost/foreach.hpp>
 
 #include <cmath>
 #include <iostream>
@@ -55,21 +53,21 @@ void Pose2::print(const string& s) const {
 
 /* ************************************************************************* */
 bool Pose2::equals(const Pose2& q, double tol) const {
-  return t_.equals(q.t_, tol) && r_.equals(q.r_, tol);
+  return equal_with_abs_tol(t_, q.t_, tol) && r_.equals(q.r_, tol);
 }
 
 /* ************************************************************************* */
 Pose2 Pose2::Expmap(const Vector3& xi, OptionalJacobian<3, 3> H) {
-  if (H) *H = Pose2::ExpmapDerivative(xi);
   assert(xi.size() == 3);
-  Point2 v(xi(0),xi(1));
-  double w = xi(2);
+  if (H) *H = Pose2::ExpmapDerivative(xi);
+  const Point2 v(xi(0),xi(1));
+  const double w = xi(2);
   if (std::abs(w) < 1e-10)
     return Pose2(xi[0], xi[1], xi[2]);
   else {
-    Rot2 R(Rot2::fromAngle(w));
-    Point2 v_ortho = R_PI_2 * v; // points towards rot center
-    Point2 t = (v_ortho - R.rotate(v_ortho)) / w;
+    const Rot2 R(Rot2::fromAngle(w));
+    const Point2 v_ortho = R_PI_2 * v; // points towards rot center
+    const Point2 t = (v_ortho - R.rotate(v_ortho)) / w;
     return Pose2(R, t);
   }
 }
@@ -132,7 +130,7 @@ Matrix3 Pose2::AdjointMap() const {
 /* ************************************************************************* */
 Matrix3 Pose2::adjointMap(const Vector3& v) {
   // See Chirikjian12book2, vol.2, pg. 36
-  Matrix3 ad = zeros(3,3);
+  Matrix3 ad = Z_3x3;
   ad(0,1) = -v[2];
   ad(1,0) = v[2];
   ad(0,2) = v[1];
@@ -216,7 +214,7 @@ Point2 Pose2::transform_from(const Point2& point,
   OptionalJacobian<2, 2> Htranslation = Hpose.cols<2>(0);
   OptionalJacobian<2, 1> Hrotation = Hpose.cols<1>(2);
   const Point2 q = r_.rotate(point, Hrotation, Hpoint);
-  if (Htranslation) *Htranslation = Hpoint ? *Hpoint : r_.matrix();
+  if (Htranslation) *Htranslation = (Hpoint ? *Hpoint : r_.matrix());
   return q + t_;
 }
 
@@ -251,7 +249,7 @@ double Pose2::range(const Point2& point,
   Point2 d = point - t_;
   if (!Hpose && !Hpoint) return d.norm();
   Matrix12 D_r_d;
-  double r = d.norm(D_r_d);
+  double r = norm2(d, D_r_d);
   if (Hpose) {
       Matrix23 D_d_pose;
       D_d_pose << -r_.c(),  r_.s(),  0.0,
@@ -269,7 +267,7 @@ double Pose2::range(const Pose2& pose,
   Point2 d = pose.t() - t_;
   if (!Hpose && !Hother) return d.norm();
   Matrix12 D_r_d;
-  double r = d.norm(D_r_d);
+  double r = norm2(d, D_r_d);
   if (Hpose) {
       Matrix23 D_d_pose;
       D_d_pose <<
@@ -313,8 +311,8 @@ boost::optional<Pose2> align(const vector<Point2Pair>& pairs) {
   if (n<2) return boost::none; // we need at least two pairs
 
   // calculate centroids
-  Point2 cp,cq;
-  BOOST_FOREACH(const Point2Pair& pair, pairs) {
+  Point2 cp(0,0), cq(0,0);
+  for(const Point2Pair& pair: pairs) {
     cp += pair.first;
     cq += pair.second;
   }
@@ -323,7 +321,7 @@ boost::optional<Pose2> align(const vector<Point2Pair>& pairs) {
 
   // calculate cos and sin
   double c=0,s=0;
-  BOOST_FOREACH(const Point2Pair& pair, pairs) {
+  for(const Point2Pair& pair: pairs) {
     Point2 dq = pair.first  - cp;
     Point2 dp = pair.second - cq;
     c +=  dp.x() * dq.x() + dp.y() * dq.y();

@@ -1,6 +1,6 @@
 # install CCOLAMD headers
 install(FILES CCOLAMD/Include/ccolamd.h DESTINATION include/gtsam/3rdparty/CCOLAMD)
-install(FILES UFconfig/UFconfig.h DESTINATION include/gtsam/3rdparty/UFconfig)
+install(FILES SuiteSparse_config/SuiteSparse_config.h DESTINATION include/gtsam/3rdparty/SuiteSparse_config)
 
 if(NOT GTSAM_USE_SYSTEM_EIGEN)
 	# Find plain .h files
@@ -43,7 +43,9 @@ if(NOT GTSAM_USE_SYSTEM_EIGEN)
 endif()
 
 option(GTSAM_BUILD_METIS_EXECUTABLES "Build metis library executables" OFF)
-add_subdirectory(metis)
+if(GTSAM_SUPPORT_NESTED_DISSECTION)
+	add_subdirectory(metis)
+endif()
 
 add_subdirectory(ceres)
 

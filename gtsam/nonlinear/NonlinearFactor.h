@@ -131,7 +131,8 @@ public:
   }
 
   /**
-   * Creates a shared_ptr clone of the factor with different keys using
+   * Creates a shared_ptr clone of the
+   * factor with different keys using
    * a map from old->new keys
    */
   shared_ptr rekey(const std::map<Key,Key>& rekey_mapping) const;
@@ -207,7 +208,12 @@ public:
     return noiseModel_->dim();
   }
 
-  /** access to the noise model */
+  /// access to the noise model
+  const SharedNoiseModel& noiseModel() const {
+    return noiseModel_;
+  }
+
+  /// @deprecated access to the noise model
   SharedNoiseModel get_noiseModel() const {
     return noiseModel_;
   }
@@ -308,7 +314,7 @@ public:
         return evaluateError(x1);
       }
     } else {
-      return zero(this->dim());
+      return Vector::Zero(this->dim());
     }
   }
 
@@ -383,7 +389,7 @@ public:
         return evaluateError(x1, x2);
       }
     } else {
-      return zero(this->dim());
+      return Vector::Zero(this->dim());
     }
   }
 
@@ -458,7 +464,7 @@ public:
       else
         return evaluateError(x.at<X1>(keys_[0]), x.at<X2>(keys_[1]), x.at<X3>(keys_[2]));
     } else {
-      return zero(this->dim());
+      return Vector::Zero(this->dim());
     }
   }
 
@@ -538,7 +544,7 @@ public:
       else
         return evaluateError(x.at<X1>(keys_[0]), x.at<X2>(keys_[1]), x.at<X3>(keys_[2]), x.at<X4>(keys_[3]));
     } else {
-      return zero(this->dim());
+      return Vector::Zero(this->dim());
     }
   }
 
@@ -622,7 +628,7 @@ public:
       else
         return evaluateError(x.at<X1>(keys_[0]), x.at<X2>(keys_[1]), x.at<X3>(keys_[2]), x.at<X4>(keys_[3]), x.at<X5>(keys_[4]));
     } else {
-      return zero(this->dim());
+      return Vector::Zero(this->dim());
     }
   }
 
@@ -710,7 +716,7 @@ public:
       else
         return evaluateError(x.at<X1>(keys_[0]), x.at<X2>(keys_[1]), x.at<X3>(keys_[2]), x.at<X4>(keys_[3]), x.at<X5>(keys_[4]), x.at<X6>(keys_[5]));
     } else {
-      return zero(this->dim());
+      return Vector::Zero(this->dim());
     }
   }
 

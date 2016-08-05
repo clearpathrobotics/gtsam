@@ -130,7 +130,7 @@ TEST(GaussianBayesTree, complicatedMarginal) {
   // Create the conditionals to go in the BayesTree
   GaussianBayesTree bt;
   bt.insertRoot(
-    MakeClique(GaussianConditional(pair_list_of<Key, Matrix> (11, (Matrix(3,1) << 0.0971, 0, 0).finished()) 
+    MakeClique(GaussianConditional(pair_list_of<Key, Matrix> (11, (Matrix(3,1) << 0.0971, 0, 0).finished())
                                                          (12, (Matrix(3,2) << 0.3171, 0.4387,  0.9502, 0.3816,  0, 0.7655).finished()),
                                             2, Vector3(0.2638, 0.1455, 0.1361)), list_of
       (MakeClique(GaussianConditional(pair_list_of<Key, Matrix> (9, (Matrix(3,1) << 0.7952, 0, 0).finished())
@@ -170,7 +170,7 @@ TEST(GaussianBayesTree, complicatedMarginal) {
   LONGS_EQUAL(1, (long)actualJacobianQR.size());
   LONGS_EQUAL(5, (long)actualJacobianQR.keys()[0]);
   Matrix actualA = actualJacobianQR.getA(actualJacobianQR.begin());
-  Matrix actualCov = inverse(actualA.transpose() * actualA);
+  Matrix actualCov = (actualA.transpose() * actualA).inverse();
   EXPECT(assert_equal(expectedCov, actualCov, 1e-1));
 
   // Marginal on 6
@@ -187,7 +187,7 @@ TEST(GaussianBayesTree, complicatedMarginal) {
   LONGS_EQUAL(1, (long)actualJacobianQR.size());
   LONGS_EQUAL(6, (long)actualJacobianQR.keys()[0]);
   actualA = actualJacobianQR.getA(actualJacobianQR.begin());
-  actualCov = inverse(actualA.transpose() * actualA);
+  actualCov = (actualA.transpose() * actualA).inverse();
   EXPECT(assert_equal(expectedCov, actualCov, 1e1));
 }
 

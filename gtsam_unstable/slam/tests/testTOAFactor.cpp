@@ -19,6 +19,7 @@
 
 #include <gtsam_unstable/geometry/Event.h>
 #include <gtsam/nonlinear/ExpressionFactorGraph.h>
+#include <gtsam/nonlinear/expressions.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/base/numericalDerivative.h>
 
@@ -30,8 +31,6 @@ using namespace std;
 using namespace gtsam;
 
 // typedefs
-typedef Eigen::Matrix<double, 1, 1> Vector1;
-typedef Expression<double> Double_;
 typedef Expression<Point3> Point3_;
 typedef Expression<Event> Event_;
 

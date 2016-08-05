@@ -26,8 +26,6 @@
 
 #include <utility>
 
-#include <boost/foreach.hpp>
-
 #include <gtsam/base/DerivedValue.h>
 #include <gtsam/nonlinear/Values.h> // Only so Eclipse finds class definition
 
@@ -220,7 +218,7 @@ namespace gtsam {
   /** Constructor from a Filtered view copies out all values */
   template<class ValueType>
   Values::Values(const Values::Filtered<ValueType>& view) {
-    BOOST_FOREACH(const typename Filtered<ValueType>::KeyValuePair& key_value, view) {
+    for(const typename Filtered<ValueType>::KeyValuePair& key_value: view) {
       Key key = key_value.key;
       insert(key, static_cast<const ValueType&>(key_value.value));
     }
@@ -229,7 +227,7 @@ namespace gtsam {
   /* ************************************************************************* */
   template<class ValueType>
   Values::Values(const Values::ConstFiltered<ValueType>& view) {
-    BOOST_FOREACH(const typename ConstFiltered<ValueType>::KeyValuePair& key_value, view) {
+    for(const typename ConstFiltered<ValueType>::KeyValuePair& key_value: view) {
       Key key = key_value.key;
       insert(key, static_cast<const ValueType&>(key_value.value));
     }
@@ -269,23 +267,89 @@ namespace gtsam {
      return filter(key_value.key);
    }
 
-  /* ************************************************************************* */
-  template<typename ValueType>
-  const ValueType& Values::at(Key j) const {
-    // Find the item
-    KeyValueMap::const_iterator item = values_.find(j);
+   /* ************************************************************************* */
 
-    // Throw exception if it does not exist
-    if(item == values_.end())
-      throw ValuesKeyDoesNotExist("retrieve", j);
+   namespace internal {
+
+   // Check the type and throw exception if incorrect
+   // Generic version, partially specialized below for various Eigen Matrix types
+   template <typename ValueType>
+   struct handle {
+     ValueType operator()(Key j, const Value* const pointer) {
+       try {
+         // value returns a const ValueType&, and the return makes a copy !!!!!
+         return dynamic_cast<const GenericValue<ValueType>&>(*pointer).value();
+       } catch (std::bad_cast&) {
+         throw ValuesIncorrectType(j, typeid(*pointer), typeid(ValueType));
+       }
+     }
+   };
+
+   template <typename MatrixType, bool isDynamic>
+   struct handle_matrix;
+
+   // Handle dynamic matrices
+   template <int M, int N>
+   struct handle_matrix<Eigen::Matrix<double, M, N>, true> {
+     Eigen::Matrix<double, M, N> operator()(Key j, const Value* const pointer) {
+       try {
+         // value returns a const Matrix&, and the return makes a copy !!!!!
+         return dynamic_cast<const GenericValue<Eigen::Matrix<double, M, N>>&>(*pointer).value();
+       } catch (std::bad_cast&) {
+         // If a fixed matrix was stored, we end up here as well.
+         throw ValuesIncorrectType(j, typeid(*pointer), typeid(Eigen::Matrix<double, M, N>));
+       }
+     }
+   };
+
+   // Handle fixed matrices
+   template <int M, int N>
+   struct handle_matrix<Eigen::Matrix<double, M, N>, false> {
+     Eigen::Matrix<double, M, N> operator()(Key j, const Value* const pointer) {
+       try {
+         // value returns a const MatrixMN&, and the return makes a copy !!!!!
+         return dynamic_cast<const GenericValue<Eigen::Matrix<double, M, N>>&>(*pointer).value();
+       } catch (std::bad_cast&) {
+         Matrix A;
+         try {
+           // Check if a dynamic matrix was stored
+           A = handle_matrix<Eigen::MatrixXd, true>()(j, pointer);  // will throw if not....
+         } catch (const ValuesIncorrectType&) {
+           // Or a dynamic vector
+           A = handle_matrix<Eigen::VectorXd, true>()(j, pointer);  // will throw if not....
+         }
+         // Yes: check size, and throw if not a match
+         if (A.rows() != M || A.cols() != N)
+           throw NoMatchFoundForFixed(M, N, A.rows(), A.cols());
+         else
+           return A; // copy but not malloc
+       }
+     }
+   };
+
+   // Handle matrices
+   template <int M, int N>
+   struct handle<Eigen::Matrix<double, M, N>> {
+     Eigen::Matrix<double, M, N> operator()(Key j, const Value* const pointer) {
+       return handle_matrix<Eigen::Matrix<double, M, N>,
+                            (M == Eigen::Dynamic || N == Eigen::Dynamic)>()(j, pointer);
+     }
+   };
+
+   }  // internal
+
+   /* ************************************************************************* */
+   template<typename ValueType>
+   ValueType Values::at(Key j) const {
+     // Find the item
+     KeyValueMap::const_iterator item = values_.find(j);
+
+     // Throw exception if it does not exist
+     if(item == values_.end())
+       throw ValuesKeyDoesNotExist("at", j);
 
     // Check the type and throw exception if incorrect
-    const Value& value = *item->second;
-    try {
-      return dynamic_cast<const GenericValue<ValueType>&>(value).value();
-    } catch (std::bad_cast &) {
-      throw ValuesIncorrectType(j, typeid(value), typeid(ValueType));
-    }
+    return internal::handle<ValueType>()(j,item->second);
   }
 
   /* ************************************************************************* */
@@ -300,7 +364,9 @@ namespace gtsam {
       try {
         return dynamic_cast<const GenericValue<ValueType>&>(value).value();
       } catch (std::bad_cast &) {
-        throw ValuesIncorrectType(j, typeid(value), typeid(ValueType));
+        // NOTE(abe): clang warns about potential side effects if done in typeid
+        const Value* value = item->second;
+        throw ValuesIncorrectType(j, typeid(*value), typeid(ValueType));
       }
      } else {
       return boost::none;
@@ -308,16 +374,17 @@ namespace gtsam {
   }
 
   /* ************************************************************************* */
+
   // insert a templated value
   template<typename ValueType>
-   void Values::insert(Key j, const ValueType& val) {
-     insert(j, static_cast<const Value&>(GenericValue<ValueType>(val)));
-   }
+  void Values::insert(Key j, const ValueType& val) {
+    insert(j, static_cast<const Value&>(GenericValue<ValueType>(val)));
+  }
 
   // update with templated value
   template <typename ValueType>
   void Values::update(Key j, const ValueType& val) {
-    update(j, static_cast<const Value&>(GenericValue<ValueType >(val)));
+    update(j, static_cast<const Value&>(GenericValue<ValueType>(val)));
   }
 
 }

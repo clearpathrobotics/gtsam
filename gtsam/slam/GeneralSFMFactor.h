@@ -107,7 +107,7 @@ public:
    */
   void print(const std::string& s = "SFMFactor", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const {
     Base::print(s, keyFormatter);
-    measured_.print(s + ".z");
+    traits<Point2>::Print(measured_, s + ".z");
   }
 
   /**
@@ -115,21 +115,20 @@ public:
    */
   bool equals(const NonlinearFactor &p, double tol = 1e-9) const {
     const This* e = dynamic_cast<const This*>(&p);
-    return e && Base::equals(p, tol) && this->measured_.equals(e->measured_, tol);
+    return e && Base::equals(p, tol) && traits<Point2>::Equals(this->measured_, e->measured_, tol);
   }
 
   /** h(x)-z */
   Vector evaluateError(const CAMERA& camera, const LANDMARK& point,
       boost::optional<Matrix&> H1=boost::none, boost::optional<Matrix&> H2=boost::none) const {
     try {
-      Point2 reprojError(camera.project2(point,H1,H2) - measured_);
-      return reprojError.vector();
+      return camera.project2(point,H1,H2) - measured_;
     }
     catch( CheiralityException& e) {
       if (H1) *H1 = JacobianC::Zero();
       if (H2) *H2 = JacobianL::Zero();
       // TODO warn if verbose output asked for
-      return zero(2);
+      return Z_2x1;
     }
   }
 
@@ -145,8 +144,7 @@ public:
     try {
       const CAMERA& camera = values.at<CAMERA>(key1);
       const LANDMARK& point = values.at<LANDMARK>(key2);
-      Point2 reprojError(camera.project2(point, H1, H2) - measured());
-      b = -reprojError.vector();
+      b = measured() - camera.project2(point, H1, H2);
     } catch (CheiralityException& e) {
       H1.setZero();
       H2.setZero();
@@ -243,7 +241,7 @@ public:
    */
   void print(const std::string& s = "SFMFactor2", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const {
     Base::print(s, keyFormatter);
-    measured_.print(s + ".z");
+    traits<Point2>::Print(measured_, s + ".z");
   }
 
   /**
@@ -251,7 +249,7 @@ public:
    */
   bool equals(const NonlinearFactor &p, double tol = 1e-9) const {
     const This* e = dynamic_cast<const This*>(&p);
-    return e && Base::equals(p, tol) && this->measured_.equals(e->measured_, tol);
+    return e && Base::equals(p, tol) && traits<Point2>::Equals(this->measured_, e->measured_, tol);
   }
 
   /** h(x)-z */
@@ -262,17 +260,16 @@ public:
   {
     try {
       Camera camera(pose3,calib);
-      Point2 reprojError(camera.project(point, H1, H2, H3) - measured_);
-      return reprojError.vector();
+      return camera.project(point, H1, H2, H3) - measured_;
     }
     catch( CheiralityException& e) {
-      if (H1) *H1 = zeros(2, 6);
-      if (H2) *H2 = zeros(2, 3);
-      if (H3) *H3 = zeros(2, DimK);
+      if (H1) *H1 = Matrix::Zero(2, 6);
+      if (H2) *H2 = Matrix::Zero(2, 3);
+      if (H3) *H3 = Matrix::Zero(2, DimK);
       std::cout << e.what() << ": Landmark "<< DefaultKeyFormatter(this->key2())
       << " behind Camera " << DefaultKeyFormatter(this->key1()) << std::endl;
     }
-    return zero(2);
+    return Z_2x1;
   }
 
   /** return the measured */

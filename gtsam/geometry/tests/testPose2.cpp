@@ -22,7 +22,6 @@
 #include <gtsam/base/lieProxies.h>
 
 #include <CppUnitLite/TestHarness.h>
-#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/assign/std/vector.hpp> // for operator +=
 #include <cmath>
@@ -44,7 +43,7 @@ TEST(Pose2 , Concept) {
 
 /* ************************************************************************* */
 TEST(Pose2, constructors) {
-  Point2 p;
+  Point2 p(0,0);
   Pose2 pose(0,p);
   Pose2 origin;
   assert_equal(pose,origin);
@@ -102,7 +101,7 @@ TEST(Pose2, expmap3) {
       0.99,  0.0, -0.015,
       0.0,   0.0,  0.0).finished();
   Matrix A2 = A*A/2.0, A3 = A2*A/3.0, A4=A3*A/4.0;
-  Matrix expected = eye(3) + A + A2 + A3 + A4;
+  Matrix expected = I_3x3 + A + A2 + A3 + A4;
 
   Vector v = Vector3(0.01, -0.015, 0.99);
   Pose2 pose = Pose2::Expmap(v);
@@ -311,7 +310,7 @@ TEST(Pose2, compose_a)
        -1.0, 0.0, 2.0,
       0.0, 0.0, 1.0
   ).finished();
-  Matrix expectedH2 = eye(3);
+  Matrix expectedH2 = I_3x3;
   Matrix numericalH1 = numericalDerivative21<Pose2, Pose2, Pose2>(testing::compose, pose1, pose2);
   Matrix numericalH2 = numericalDerivative22<Pose2, Pose2, Pose2>(testing::compose, pose1, pose2);
   EXPECT(assert_equal(expectedH1,actualDcompose1));
@@ -372,7 +371,7 @@ TEST(Pose2, compose_c)
 /* ************************************************************************* */
 TEST(Pose2, inverse )
 {
-  Point2 origin, t(1,2);
+  Point2 origin(0,0), t(1,2);
   Pose2 gTl(M_PI/2.0, t); // robot at (1,2) looking towards y
 
   Pose2 identity, lTg = gTl.inverse();
@@ -410,7 +409,7 @@ namespace {
 /* ************************************************************************* */
 TEST( Pose2, matrix )
 {
-  Point2 origin, t(1,2);
+  Point2 origin(0,0), t(1,2);
   Pose2 gTl(M_PI/2.0, t); // robot at (1,2) looking towards y
   Matrix gMl = matrix(gTl);
   EXPECT(assert_equal((Matrix(3,3) <<
@@ -744,7 +743,7 @@ namespace {
   /* ************************************************************************* */
   struct Triangle { size_t i_,j_,k_;};
 
-  boost::optional<Pose2> align(const vector<Point2>& ps, const vector<Point2>& qs,
+  boost::optional<Pose2> align2(const vector<Point2>& ps, const vector<Point2>& qs,
     const pair<Triangle, Triangle>& trianglePair) {
       const Triangle& t1 = trianglePair.first, t2 = trianglePair.second;
       vector<Point2Pair> correspondences;
@@ -763,7 +762,7 @@ TEST(Pose2, align_4) {
   Triangle t1; t1.i_=0; t1.j_=1; t1.k_=2;
   Triangle t2; t2.i_=1; t2.j_=2; t2.k_=0;
 
-  boost::optional<Pose2> actual = align(ps, qs, make_pair(t1,t2));
+  boost::optional<Pose2> actual = align2(ps, qs, make_pair(t1,t2));
   EXPECT(assert_equal(expected, *actual));
 }
 

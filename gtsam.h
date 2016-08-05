@@ -266,23 +266,12 @@ class Point2 {
 
   // Group
   static gtsam::Point2 identity();
-  gtsam::Point2 inverse() const;
-  gtsam::Point2 compose(const gtsam::Point2& p2) const;
-  gtsam::Point2 between(const gtsam::Point2& p2) const;
-
-  // Manifold
-  gtsam::Point2 retract(Vector v) const;
-  Vector localCoordinates(const gtsam::Point2& p) const;
-
-  // Lie Group
-  static gtsam::Point2 Expmap(Vector v);
-  static Vector Logmap(const gtsam::Point2& p);
 
   // Standard Interface
   double x() const;
   double y() const;
   Vector vector() const;
-  double dist(const gtsam::Point2& p2) const;
+  double distance(const gtsam::Point2& p2) const;
   double norm() const;
 
   // enabling serialization functionality
@@ -1368,7 +1357,7 @@ virtual class HessianFactor : gtsam::GaussianFactor {
 
   //Standard Interface
   size_t rows() const;
-  Matrix info() const;
+  Matrix information() const;
   double constantTerm() const;
   Vector linearTerm() const;
 
@@ -1742,7 +1731,8 @@ virtual class NonlinearFactor {
 
 virtual class NoiseModelFactor: gtsam::NonlinearFactor {
   void equals(const gtsam::NoiseModelFactor& other, double tol) const;
-  gtsam::noiseModel::Base* get_noiseModel() const;
+  gtsam::noiseModel::Base* get_noiseModel() const; // deprecated by below
+  gtsam::noiseModel::Base* noiseModel() const;
   Vector unwhitenedError(const gtsam::Values& x) const;
   Vector whitenedError(const gtsam::Values& x) const;
 };
@@ -1797,9 +1787,6 @@ class Values {
   void insert(size_t j, Vector t);
   void insert(size_t j, Matrix t);
 
-  // Fixed size version
-  void insertFixed(size_t j, Vector t, size_t n);
-
   void update(size_t j, const gtsam::Point2& t);
   void update(size_t j, const gtsam::Point3& t);
   void update(size_t j, const gtsam::Rot2& t);
@@ -1816,12 +1803,6 @@ class Values {
 
   template<T = {gtsam::Point2, gtsam::Point3, gtsam::Rot2, gtsam::Pose2, gtsam::Rot3, gtsam::Pose3, gtsam::Cal3_S2, gtsam::Cal3DS2, gtsam::Cal3Bundler, gtsam::EssentialMatrix, gtsam::imuBias::ConstantBias, Vector, Matrix}>
   T at(size_t j);
-
-  /// Fixed size versions, for n in 1..9
-  void insertFixed(size_t j, Vector t, size_t n);
-
-  /// Fixed size versions, for n in 1..9
-  Vector atFixed(size_t j, size_t n);
 
   /// version for double
   void insertDouble(size_t j, double c);
@@ -1949,10 +1930,10 @@ virtual class LinearContainerFactor : gtsam::NonlinearFactor {
   gtsam::JacobianFactor* toJacobian() const;
   gtsam::HessianFactor* toHessian() const;
 
-  static gtsam::NonlinearFactorGraph convertLinearGraph(const gtsam::GaussianFactorGraph& linear_graph,
+  static gtsam::NonlinearFactorGraph ConvertLinearGraph(const gtsam::GaussianFactorGraph& linear_graph,
       const gtsam::Values& linearizationPoint);
 
-  static gtsam::NonlinearFactorGraph convertLinearGraph(const gtsam::GaussianFactorGraph& linear_graph);
+  static gtsam::NonlinearFactorGraph ConvertLinearGraph(const gtsam::GaussianFactorGraph& linear_graph);
 
   // enabling serialization functionality
   void serializable() const;
@@ -2160,6 +2141,8 @@ class ISAM2Result {
   size_t getCliques() const;
 };
 
+class FactorIndices {};
+
 class ISAM2 {
   ISAM2();
   ISAM2(const gtsam::ISAM2Params& params);
@@ -2172,8 +2155,8 @@ class ISAM2 {
 
   gtsam::ISAM2Result update();
   gtsam::ISAM2Result update(const gtsam::NonlinearFactorGraph& newFactors, const gtsam::Values& newTheta);
-  gtsam::ISAM2Result update(const gtsam::NonlinearFactorGraph& newFactors, const gtsam::Values& newTheta, const gtsam::KeyVector& removeFactorIndices);
-  gtsam::ISAM2Result update(const gtsam::NonlinearFactorGraph& newFactors, const gtsam::Values& newTheta, const gtsam::KeyVector& removeFactorIndices, const gtsam::KeyGroupMap& constrainedKeys);
+  gtsam::ISAM2Result update(const gtsam::NonlinearFactorGraph& newFactors, const gtsam::Values& newTheta, const gtsam::FactorIndices& removeFactorIndices);
+  gtsam::ISAM2Result update(const gtsam::NonlinearFactorGraph& newFactors, const gtsam::Values& newTheta, const gtsam::FactorIndices& removeFactorIndices, const gtsam::KeyGroupMap& constrainedKeys);
   // TODO: wrap the full version of update
  //void update(const gtsam::NonlinearFactorGraph& newFactors, const gtsam::Values& newTheta, const gtsam::KeyVector& removeFactorIndices, FastMap<Key,int>& constrainedKeys);
   //void update(const gtsam::NonlinearFactorGraph& newFactors, const gtsam::Values& newTheta, const gtsam::KeyVector& removeFactorIndices, FastMap<Key,int>& constrainedKeys, bool force_relinearize);
@@ -2486,36 +2469,34 @@ class NavState {
   gtsam::Pose3 pose() const;
 };
 
-#include <gtsam/navigation/PreintegrationParams.h>
-class PreintegrationParams {
-  PreintegrationParams(Vector n_gravity);
-  // TODO(frank): add setters/getters or make this MATLAB wrapper feature
+#include <gtsam/navigation/PreintegratedRotation.h>
+virtual class PreintegratedRotationParams {
+  PreintegratedRotationParams();
+  void setGyroscopeCovariance(Matrix cov);
+  void setOmegaCoriolis(Vector omega);
+  void setBodyPSensor(const gtsam::Pose3& pose);
+
+  Matrix getGyroscopeCovariance() const;
+
+  // TODO(frank): allow optional
+  //  boost::optional<Vector3> getOmegaCoriolis() const;
+  //  boost::optional<Pose3>   getBodyPSensor()   const;
 };
 
-#include <gtsam/navigation/PreintegrationBase.h>
-virtual class PreintegrationBase {
-  // Constructors
-  PreintegrationBase(const gtsam::PreintegrationParams* params);
-  PreintegrationBase(const gtsam::PreintegrationParams* params,
-      const gtsam::imuBias::ConstantBias& bias);
+#include <gtsam/navigation/PreintegrationParams.h>
+virtual class PreintegrationParams : gtsam::PreintegratedRotationParams {
+  PreintegrationParams(Vector n_gravity);
+  void setAccelerometerCovariance(Matrix cov);
+  void setIntegrationCovariance(Matrix cov);
+  void setUse2ndOrderCoriolis(bool flag);
 
-  // Testable
-  void print(string s) const;
-  bool equals(const gtsam::PreintegrationBase& expected, double tol);
-
-  double deltaTij() const;
-  gtsam::Rot3 deltaRij() const;
-  Vector deltaPij() const;
-  Vector deltaVij() const;
-  Vector biasHatVector() const;
-
-  // Standard Interface
-  gtsam::NavState predict(const gtsam::NavState& state_i,
-      const gtsam::imuBias::ConstantBias& bias) const;
+  Matrix getAccelerometerCovariance() const;
+  Matrix getIntegrationCovariance()   const;
+  bool   getUse2ndOrderCoriolis()     const;
 };
 
 #include <gtsam/navigation/ImuFactor.h>
-virtual class PreintegratedImuMeasurements: gtsam::PreintegrationBase {
+class PreintegratedImuMeasurements {
   // Constructors
   PreintegratedImuMeasurements(const gtsam::PreintegrationParams* params);
   PreintegratedImuMeasurements(const gtsam::PreintegrationParams* params,
@@ -2530,6 +2511,13 @@ virtual class PreintegratedImuMeasurements: gtsam::PreintegrationBase {
       double deltaT);
   void resetIntegration();
   Matrix preintMeasCov() const;
+  double deltaTij() const;
+  gtsam::Rot3 deltaRij() const;
+  Vector deltaPij() const;
+  Vector deltaVij() const;
+  Vector biasHatVector() const;
+  gtsam::NavState predict(const gtsam::NavState& state_i,
+      const gtsam::imuBias::ConstantBias& bias) const;
 };
 
 virtual class ImuFactor: gtsam::NonlinearFactor {
@@ -2545,7 +2533,7 @@ virtual class ImuFactor: gtsam::NonlinearFactor {
 };
 
 #include <gtsam/navigation/CombinedImuFactor.h>
-virtual class PreintegratedCombinedMeasurements: gtsam::PreintegrationBase {
+class PreintegratedCombinedMeasurements {
   // Testable
   void print(string s) const;
   bool equals(const gtsam::PreintegratedCombinedMeasurements& expected,
@@ -2556,6 +2544,13 @@ virtual class PreintegratedCombinedMeasurements: gtsam::PreintegrationBase {
       double deltaT);
   void resetIntegration();
   Matrix preintMeasCov() const;
+  double deltaTij() const;
+  gtsam::Rot3 deltaRij() const;
+  Vector deltaPij() const;
+  Vector deltaVij() const;
+  Vector biasHatVector() const;
+  gtsam::NavState predict(const gtsam::NavState& state_i,
+      const gtsam::imuBias::ConstantBias& bias) const;
 };
 
 virtual class CombinedImuFactor: gtsam::NonlinearFactor {

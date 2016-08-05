@@ -223,10 +223,10 @@ public:
       *H1 = -F(p1);
 
     if(H2)
-      *H2 = eye(dim());
+      *H2 = Matrix::Identity(dim(),dim());
 
     // Return the error between the prediction and the supplied value of p2
-    return (p2 - prediction).vector();
+    return (p2 - prediction);
   }
 
 };
@@ -400,7 +400,7 @@ TEST( ExtendedKalmanFilter, nonlinear ) {
   ExtendedKalmanFilter<Point2> ekf(X(0), x_initial, P_initial);
 
   // Enter Predict-Update Loop
-  Point2 x_predict, x_update;
+  Point2 x_predict(0,0), x_update(0,0);
   for(unsigned int i = 0; i < 10; ++i){
     // Create motion factor
     NonlinearMotionModel motionFactor(X(i), X(i+1));

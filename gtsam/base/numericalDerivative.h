@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -88,7 +88,7 @@ typename internal::FixedSizeMatrix<X>::type numericalGradient(boost::function<do
   TangentX d;
   d.setZero();
 
-  Vector g = zero(N); // Can be fixed size
+  Eigen::Matrix<double,N,1> g; g.setZero(); // Can be fixed size
   for (int j = 0; j < N; j++) {
     d(j) = delta;
     double hxplus = h(traits<X>::Retract(x, d));
@@ -131,24 +131,24 @@ typename internal::FixedSizeMatrix<Y,X>::type numericalDerivative11(boost::funct
   typedef typename TraitsX::TangentVector TangentX;
 
   // get value at x, and corresponding chart
-  Y hx = h(x);
+  const Y hx = h(x);
 
   // Bit of a hack for now to find number of rows
-  TangentY zeroY = TraitsY::Local(hx, hx);
-  size_t m = zeroY.size();
+  const TangentY zeroY = TraitsY::Local(hx, hx);
+  const size_t m = zeroY.size();
 
   // Prepare a tangent vector to perturb x with, only works for fixed size
   TangentX dx;
   dx.setZero();
 
   // Fill in Jacobian H
-  Matrix H = zeros(m, N);
-  double factor = 1.0 / (2.0 * delta);
+  Matrix H = Matrix::Zero(m, N);
+  const double factor = 1.0 / (2.0 * delta);
   for (int j = 0; j < N; j++) {
     dx(j) = delta;
-    TangentY dy1 = TraitsY::Local(hx, h(TraitsX::Retract(x, dx)));
+    const TangentY dy1 = TraitsY::Local(hx, h(TraitsX::Retract(x, dx)));
     dx(j) = -delta;
-    TangentY dy2 = TraitsY::Local(hx, h(TraitsX::Retract(x, dx)));
+    const TangentY dy2 = TraitsY::Local(hx, h(TraitsX::Retract(x, dx)));
     dx(j) = 0;
     H.col(j) << (dy1 - dy2) * factor;
   }
@@ -320,8 +320,8 @@ typename internal::FixedSizeMatrix<Y,X1>::type numericalDerivative41(
 /**
  * Compute numerical derivative in argument 2 of 4-argument function
  * @param h ternary function yielding m-vector
- * @param x1 n-dimensional first argument value
- * @param x2 second argument value
+ * @param x1 first argument value
+ * @param x2 n-dimensional second argument value
  * @param x3 third argument value
  * @param x4 fourth argument value
  * @param delta increment for numerical derivative
@@ -333,9 +333,51 @@ typename internal::FixedSizeMatrix<Y,X2>::type numericalDerivative42(
     const X2& x2, const X3& x3, const X4& x4, double delta = 1e-5) {
   BOOST_STATIC_ASSERT_MSG( (boost::is_base_of<gtsam::manifold_tag, typename traits<Y>::structure_category>::value),
       "Template argument Y must be a manifold type.");
-  BOOST_STATIC_ASSERT_MSG( (boost::is_base_of<gtsam::manifold_tag, typename traits<X1>::structure_category>::value),
-      "Template argument X1 must be a manifold type.");
+  BOOST_STATIC_ASSERT_MSG( (boost::is_base_of<gtsam::manifold_tag, typename traits<X2>::structure_category>::value),
+      "Template argument X2 must be a manifold type.");
   return numericalDerivative11<Y, X2>(boost::bind(h, x1, _1, x3, x4), x2, delta);
+}
+
+/**
+ * Compute numerical derivative in argument 3 of 4-argument function
+ * @param h ternary function yielding m-vector
+ * @param x1 first argument value
+ * @param x2 second argument value
+ * @param x3 n-dimensional third argument value
+ * @param x4 fourth argument value
+ * @param delta increment for numerical derivative
+ * @return m*n Jacobian computed via central differencing
+ */
+template<class Y, class X1, class X2, class X3, class X4>
+typename internal::FixedSizeMatrix<Y,X3>::type numericalDerivative43(
+    boost::function<Y(const X1&, const X2&, const X3&, const X4&)> h, const X1& x1,
+    const X2& x2, const X3& x3, const X4& x4, double delta = 1e-5) {
+  BOOST_STATIC_ASSERT_MSG( (boost::is_base_of<gtsam::manifold_tag, typename traits<Y>::structure_category>::value),
+      "Template argument Y must be a manifold type.");
+  BOOST_STATIC_ASSERT_MSG( (boost::is_base_of<gtsam::manifold_tag, typename traits<X3>::structure_category>::value),
+      "Template argument X3 must be a manifold type.");
+  return numericalDerivative11<Y, X3>(boost::bind(h, x1, x2, _1, x4), x3, delta);
+}
+
+/**
+ * Compute numerical derivative in argument 4 of 4-argument function
+ * @param h ternary function yielding m-vector
+ * @param x1 first argument value
+ * @param x2 second argument value
+ * @param x3 third argument value
+ * @param x4 n-dimensional fourth argument value
+ * @param delta increment for numerical derivative
+ * @return m*n Jacobian computed via central differencing
+ */
+template<class Y, class X1, class X2, class X3, class X4>
+typename internal::FixedSizeMatrix<Y,X4>::type numericalDerivative44(
+    boost::function<Y(const X1&, const X2&, const X3&, const X4&)> h, const X1& x1,
+    const X2& x2, const X3& x3, const X4& x4, double delta = 1e-5) {
+  BOOST_STATIC_ASSERT_MSG( (boost::is_base_of<gtsam::manifold_tag, typename traits<Y>::structure_category>::value),
+      "Template argument Y must be a manifold type.");
+  BOOST_STATIC_ASSERT_MSG( (boost::is_base_of<gtsam::manifold_tag, typename traits<X4>::structure_category>::value),
+      "Template argument X4 must be a manifold type.");
+  return numericalDerivative11<Y, X4>(boost::bind(h, x1, x2, x3, _1), x4, delta);
 }
 
 /**

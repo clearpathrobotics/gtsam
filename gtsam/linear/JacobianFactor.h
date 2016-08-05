@@ -37,6 +37,11 @@ namespace gtsam {
   class Ordering;
   class JacobianFactor;
 
+  /**
+   * Multiply all factors and eliminate the given keys from the resulting factor using a QR
+   * variant that handles constraints (zero sigmas). Computation happens in noiseModel::Gaussian::QR
+   * Returns a conditional on those keys, and a new factor on the separator.
+   */
   GTSAM_EXPORT std::pair<boost::shared_ptr<GaussianConditional>, boost::shared_ptr<JacobianFactor> >
     EliminateQR(const GaussianFactorGraph& factors, const Ordering& keys);
 
@@ -178,12 +183,12 @@ namespace gtsam {
      * which in fact stores an augmented information matrix.
      */
     virtual Matrix augmentedInformation() const;
-    
+
     /** Return the non-augmented information matrix represented by this
      * GaussianFactor.
      */
     virtual Matrix information() const;
-    
+
     /// Return the diagonal of the Hessian for this factor
     virtual VectorValues hessianDiagonal() const;
 
@@ -197,7 +202,7 @@ namespace gtsam {
      * @brief Returns (dense) A,b pair associated with factor, bakes in the weights
      */
     virtual std::pair<Matrix, Vector> jacobian() const;
-    
+
     /**
      * @brief Returns (dense) A,b pair associated with factor, does not bake in weights
      */
@@ -314,12 +319,12 @@ namespace gtsam {
     JacobianFactor whiten() const;
 
     /** Eliminate the requested variables. */
-    std::pair<boost::shared_ptr<GaussianConditional>, boost::shared_ptr<JacobianFactor> >
+    std::pair<boost::shared_ptr<GaussianConditional>, shared_ptr>
       eliminate(const Ordering& keys);
 
     /** set noiseModel correctly */
     void setModel(bool anyConstrained, const Vector& sigmas);
-    
+
     /**
      * Densely partially eliminate with QR factorization, this is usually provided as an argument to
      * one of the factor graph elimination functions (see EliminateableFactorGraph).  HessianFactors
@@ -331,13 +336,15 @@ namespace gtsam {
      * @return The conditional and remaining factor
      *
      * \addtogroup LinearSolving */
-    friend GTSAM_EXPORT std::pair<boost::shared_ptr<GaussianConditional>, boost::shared_ptr<JacobianFactor> >
+    friend GTSAM_EXPORT std::pair<boost::shared_ptr<GaussianConditional>, shared_ptr>
       EliminateQR(const GaussianFactorGraph& factors, const Ordering& keys);
 
     /**
      * splits a pre-factorized factor into a conditional, and changes the current
      * factor to be the remaining component. Performs same operation as eliminate(),
      * but without running QR.
+     * NOTE: looks at dimension of noise model to determine how many rows to keep.
+     * @param nrFrontals number of keys to eliminate
      */
     boost::shared_ptr<GaussianConditional> splitConditional(size_t nrFrontals);
 
@@ -346,7 +353,7 @@ namespace gtsam {
     /// Internal function to fill blocks and set dimensions
     template<typename TERMS>
     void fillTerms(const TERMS& terms, const Vector& b, const SharedDiagonal& noiseModel);
-    
+
   private:
 
     /** Unsafe Constructor that creates an uninitialized Jacobian of right size

@@ -101,9 +101,9 @@ namespace gtsam {
     virtual ~MultiProjectionFactor() {}
 
     /// @return a deep copy of this factor
-    virtual gtsam::NonlinearFactor::shared_ptr clone() const {
-      return boost::static_pointer_cast<gtsam::NonlinearFactor>(
-          gtsam::NonlinearFactor::shared_ptr(new This(*this))); }
+    virtual NonlinearFactor::shared_ptr clone() const {
+      return boost::static_pointer_cast<NonlinearFactor>(
+          NonlinearFactor::shared_ptr(new This(*this))); }
 
     /**
      * print
@@ -143,20 +143,20 @@ namespace gtsam {
 //
 //        if(body_P_sensor_) {
 //          if(H1) {
-//            gtsam::Matrix H0;
+//            Matrix H0;
 //            PinholeCamera<CALIBRATION> camera(pose.compose(*body_P_sensor_, H0), *K_);
 //            Point2 reprojectionError(camera.project(point, H1, H2) - measured_);
 //            *H1 = *H1 * H0;
-//            return reprojectionError.vector();
+//            return reprojectionError;
 //          } else {
 //            PinholeCamera<CALIBRATION> camera(pose.compose(*body_P_sensor_), *K_);
 //            Point2 reprojectionError(camera.project(point, H1, H2) - measured_);
-//            return reprojectionError.vector();
+//            return reprojectionError;
 //          }
 //        } else {
 //          PinholeCamera<CALIBRATION> camera(pose, *K_);
 //          Point2 reprojectionError(camera.project(point, H1, H2) - measured_);
-//          return reprojectionError.vector();
+//          return reprojectionError;
 //        }
 //      }
 
@@ -168,31 +168,31 @@ namespace gtsam {
       try {
         if(body_P_sensor_) {
           if(H1) {
-            gtsam::Matrix H0;
+            Matrix H0;
             PinholeCamera<CALIBRATION> camera(pose.compose(*body_P_sensor_, H0), *K_);
             Point2 reprojectionError(camera.project(point, H1, H2) - measured_);
             *H1 = *H1 * H0;
-            return reprojectionError.vector();
+            return reprojectionError;
           } else {
             PinholeCamera<CALIBRATION> camera(pose.compose(*body_P_sensor_), *K_);
             Point2 reprojectionError(camera.project(point, H1, H2) - measured_);
-            return reprojectionError.vector();
+            return reprojectionError;
           }
         } else {
           PinholeCamera<CALIBRATION> camera(pose, *K_);
           Point2 reprojectionError(camera.project(point, H1, H2) - measured_);
-          return reprojectionError.vector();
+          return reprojectionError;
         }
       } catch( CheiralityException& e) {
-        if (H1) *H1 = zeros(2,6);
-        if (H2) *H2 = zeros(2,3);
+        if (H1) *H1 = Matrix::Zero(2,6);
+        if (H2) *H2 = Matrix::Zero(2,3);
         if (verboseCheirality_)
           std::cout << e.what() << ": Landmark "<< DefaultKeyFormatter(this->key2()) <<
               " moved behind camera " << DefaultKeyFormatter(this->key1()) << std::endl;
         if (throwCheirality_)
           throw e;
       }
-      return ones(2) * 2.0 * K_->fx();
+      return Vector::Ones(2) * 2.0 * K_->fx();
     }
 
     /** return the measurements */

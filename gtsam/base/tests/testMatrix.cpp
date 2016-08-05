@@ -21,7 +21,6 @@
 #include <gtsam/base/testLie.h>
 #include <CppUnitLite/TestHarness.h>
 #include <boost/tuple/tuple.hpp>
-#include <boost/foreach.hpp>
 #include <iostream>
 #include <sstream>
 
@@ -156,8 +155,8 @@ TEST(Matrix, collect2 )
 TEST(Matrix, collect3 )
 {
   Matrix A, B;
-  A = eye(2, 3);
-  B = eye(2, 3);
+  A = Matrix::Identity(2,3);
+  B = Matrix::Identity(2,3);
   vector<const Matrix*> matrices;
   matrices.push_back(&A);
   matrices.push_back(&B);
@@ -212,48 +211,6 @@ TEST(Matrix, column )
 }
 
 /* ************************************************************************* */
-TEST(Matrix, insert_column )
-{
-  Matrix big = zeros(5, 6);
-  Vector col = ones(5);
-  size_t j = 3;
-
-  insertColumn(big, col, j);
-
-  Matrix expected = (Matrix(5, 6) <<
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0).finished();
-
-  EXPECT(assert_equal(expected, big));
-}
-
-/* ************************************************************************* */
-TEST(Matrix, insert_subcolumn )
-{
-  Matrix big = zeros(5, 6);
-  Vector col1 = ones(2);
-  size_t i = 1;
-  size_t j = 3;
-
-  insertColumn(big, col1, i, j); // check 1
-
-  Vector col2 = ones(1);
-  insertColumn(big, col2, 4, 5); // check 2
-
-  Matrix expected = (Matrix(5, 6) <<
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      0.0, 0.0, 0.0, 0.0, 0.0, 1.0).finished();
-
-  EXPECT(assert_equal(expected, big));
-}
-
-/* ************************************************************************* */
 TEST(Matrix, row )
 {
   Matrix A = (Matrix(4, 7) << -1., 0., 1., 0., 0., 0., -0.2, 0., -1., 0., 1.,
@@ -273,25 +230,9 @@ TEST(Matrix, row )
 }
 
 /* ************************************************************************* */
-TEST(Matrix, zeros )
-{
-  Matrix A(2, 3);
-  A(0, 0) = 0;
-  A(0, 1) = 0;
-  A(0, 2) = 0;
-  A(1, 0) = 0;
-  A(1, 1) = 0;
-  A(1, 2) = 0;
-
-  Matrix zero = zeros(2, 3);
-
-  EQUALITY(A , zero);
-}
-
-/* ************************************************************************* */
 TEST(Matrix, insert_sub )
 {
-  Matrix big = zeros(5, 6), small = (Matrix(2, 3) << 1.0, 1.0, 1.0, 1.0, 1.0,
+  Matrix big = Matrix::Zero(5,6), small = (Matrix(2, 3) << 1.0, 1.0, 1.0, 1.0, 1.0,
       1.0).finished();
 
   insertSub(big, small, 1, 2);
@@ -307,9 +248,9 @@ TEST(Matrix, insert_sub )
 TEST(Matrix, diagMatrices )
 {
   std::vector<Matrix> Hs;
-  Hs.push_back(ones(3,3));
-  Hs.push_back(ones(4,4)*2);
-  Hs.push_back(ones(2,2)*3);
+  Hs.push_back(Matrix::Ones(3,3));
+  Hs.push_back(Matrix::Ones(4,4)*2);
+  Hs.push_back(Matrix::Ones(2,2)*3);
 
   Matrix actual = diag(Hs);
 
@@ -723,9 +664,9 @@ TEST(Matrix, inverse )
   A(2, 1) = 0;
   A(2, 2) = 6;
 
-  Matrix Ainv = inverse(A);
-  EXPECT(assert_equal(eye(3), A*Ainv));
-  EXPECT(assert_equal(eye(3), Ainv*A));
+  Matrix Ainv = A.inverse();
+  EXPECT(assert_equal((Matrix) I_3x3, A*Ainv));
+  EXPECT(assert_equal((Matrix) I_3x3, Ainv*A));
 
   Matrix expected(3, 3);
   expected(0, 0) = 1.0909;
@@ -746,13 +687,13 @@ TEST(Matrix, inverse )
       0.0, -1.0, 1.0,
       1.0, 0.0, 2.0,
       0.0, 0.0, 1.0).finished(),
-      inverse(lMg)));
+      lMg.inverse()));
   Matrix gMl((Matrix(3, 3) << 0.0, -1.0, 1.0, 1.0, 0.0, 2.0, 0.0, 0.0, 1.0).finished());
   EXPECT(assert_equal((Matrix(3, 3) <<
       0.0, 1.0,-2.0,
       -1.0, 0.0, 1.0,
       0.0, 0.0, 1.0).finished(),
-      inverse(gMl)));
+      gMl.inverse()));
 }
 
 /* ************************************************************************* */
@@ -769,7 +710,7 @@ TEST(Matrix, inverse2 )
   A(2, 1) = 0;
   A(2, 2) = 1;
 
-  Matrix Ainv = inverse(A);
+  Matrix Ainv = A.inverse();
 
   Matrix expected(3, 3);
   expected(0, 0) = 0;
@@ -965,10 +906,6 @@ TEST(Matrix, weighted_elimination )
   Vector d = (Vector(4) << 0.2, -0.14, 0.0, 0.2).finished();
   Vector newSigmas = (Vector(4) << 0.0894427, 0.0894427, 0.223607, 0.223607).finished();
 
-  Vector r;
-  double di, sigma;
-  size_t i;
-
   // perform elimination
   Matrix A1 = A;
   Vector b1 = b;
@@ -976,8 +913,11 @@ TEST(Matrix, weighted_elimination )
       weighted_eliminate(A1, b1, sigmas);
 
   // unpack and verify
-  i = 0;
-  BOOST_FOREACH(boost::tie(r, di, sigma), solution){
+  size_t i = 0;
+  for (const auto& tuple : solution) {
+    Vector r;
+    double di, sigma;
+    boost::tie(r, di, sigma) = tuple;
     EXPECT(assert_equal(r, expectedR.row(i))); // verify r
     DOUBLES_EQUAL(d(i), di, 1e-8); // verify d
     DOUBLES_EQUAL(newSigmas(i), sigma, 1e-5); // verify sigma
@@ -996,7 +936,7 @@ TEST(Matrix, inverse_square_root )
       10.0).finished();
 
   EQUALITY(expected,actual);
-  EQUALITY(measurement_covariance,inverse(actual*actual));
+  EQUALITY(measurement_covariance,(actual*actual).inverse());
 
   // Randomly generated test.  This test really requires inverse to
   // be working well; if it's not, there's the possibility of a
@@ -1053,28 +993,6 @@ TEST(Matrix, cholesky_inverse )
 }
 
 /* ************************************************************************* */
-TEST(Matrix, multiplyAdd )
-{
-  Matrix A = (Matrix(3, 4) << 4., 0., 0., 1., 0., 4., 0., 2., 0., 0., 1., 3.).finished();
-  Vector x = (Vector(4) << 1., 2., 3., 4.).finished(), e = Vector3(5., 6., 7.),
-      expected = e + A * x;
-
-  multiplyAdd(1, A, x, e);
-  EXPECT(assert_equal(expected, e));
-}
-
-/* ************************************************************************* */
-TEST(Matrix, transposeMultiplyAdd )
-{
-  Matrix A = (Matrix(3, 4) << 4., 0., 0., 1., 0., 4., 0., 2., 0., 0., 1., 3.).finished();
-  Vector x = (Vector(4) << 1., 2., 3., 4.).finished(), e = Vector3(5., 6., 7.),
-      expected = x + trans(A) * e;
-
-  transposeMultiplyAdd(1, A, e, x);
-  EXPECT(assert_equal(expected, x));
-}
-
-/* ************************************************************************* */
 TEST(Matrix, linear_dependent )
 {
   Matrix A = (Matrix(2, 3) << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0).finished();
@@ -1102,12 +1020,12 @@ TEST(Matrix, linear_dependent3 )
 TEST(Matrix, svd1 )
 {
   Vector v = Vector3(2., 1., 0.);
-  Matrix U1 = eye(4, 3), S1 = diag(v), V1 = eye(3, 3), A = (U1 * S1)
+  Matrix U1 = Matrix::Identity(4, 3), S1 = v.asDiagonal(), V1 = I_3x3, A = (U1 * S1)
       * Matrix(trans(V1));
   Matrix U, V;
   Vector s;
   svd(A, U, s, V);
-  Matrix S = diag(s);
+  Matrix S = s.asDiagonal();
   EXPECT(assert_equal(U*S*Matrix(trans(V)),A));
   EXPECT(assert_equal(S,S1));
 }
@@ -1158,7 +1076,7 @@ TEST(Matrix, svd3 )
     V = -V;
   }
 
-  Matrix S = diag(s);
+  Matrix S = s.asDiagonal();
   Matrix t = U * S;
   Matrix Vt = trans(V);
 
@@ -1202,7 +1120,7 @@ TEST(Matrix, svd4 )
     V.col(1) = -V.col(1);
   }
 
-  Matrix reconstructed = U * diag(s) * trans(V);
+  Matrix reconstructed = U * s.asDiagonal() * trans(V);
 
   EXPECT(assert_equal(A, reconstructed, 1e-4));
   EXPECT(assert_equal(expectedU,U, 1e-3));

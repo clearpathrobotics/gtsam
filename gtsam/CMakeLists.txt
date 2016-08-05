@@ -26,7 +26,7 @@ set (3rdparty_srcs
  ${eigen_headers} # Set by 3rdparty/CMakeLists.txt
  ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/CCOLAMD/Source/ccolamd.c
  ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/CCOLAMD/Source/ccolamd_global.c
- ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/UFconfig/UFconfig.c)
+ ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/SuiteSparse_config/SuiteSparse_config.c)
 gtsam_assign_source_folders("${3rdparty_srcs}") # Create MSVC structure
 
 # To exclude a source from the library build (in any subfolder)
@@ -88,7 +88,9 @@ configure_file("${PROJECT_SOURCE_DIR}/cmake/dllexport.h.in" "dllexport.h")
 list(APPEND gtsam_srcs "${PROJECT_BINARY_DIR}/gtsam/config.h" "${PROJECT_BINARY_DIR}/gtsam/dllexport.h")
 install(FILES "${PROJECT_BINARY_DIR}/gtsam/config.h" "${PROJECT_BINARY_DIR}/gtsam/dllexport.h" DESTINATION include/gtsam)
 
-list(APPEND GTSAM_ADDITIONAL_LIBRARIES metis)
+if(GTSAM_SUPPORT_NESTED_DISSECTION)
+    list(APPEND GTSAM_ADDITIONAL_LIBRARIES metis)
+endif()
 
 # Versions
 set(gtsam_version   ${GTSAM_VERSION_MAJOR}.${GTSAM_VERSION_MINOR}.${GTSAM_VERSION_PATCH})
@@ -132,6 +134,13 @@ else()
     install(TARGETS gtsam EXPORT GTSAM-exports LIBRARY DESTINATION lib ARCHIVE DESTINATION lib RUNTIME DESTINATION bin)
     list(APPEND GTSAM_EXPORTED_TARGETS gtsam)
     set(GTSAM_EXPORTED_TARGETS "${GTSAM_EXPORTED_TARGETS}" PARENT_SCOPE)
+endif()
+
+# make sure that ccolamd compiles even in face of warnings
+if(WIN32)
+    set_source_files_properties(${3rdparty_srcs} PROPERTIES COMPILE_FLAGS "/w")
+else()
+    set_source_files_properties(${3rdparty_srcs} PROPERTIES COMPILE_FLAGS "-Wno-error")
 endif()
 
 # Special cases

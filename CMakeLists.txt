@@ -66,7 +66,9 @@ option(GTSAM_WITH_EIGEN_MKL_OPENMP       "Eigen, when using Intel MKL, will also
 option(GTSAM_THROW_CHEIRALITY_EXCEPTION "Throw exception when a triangulated point is behind a camera" ON)
 option(GTSAM_BUILD_PYTHON                "Enable/Disable building & installation of Python module" OFF)
 option(GTSAM_ALLOW_DEPRECATED_SINCE_V4   "Allow use of methods/functions deprecated in GTSAM 4" ON)
-option(GTSAM_USE_VECTOR3_POINTS          "Symply typdef Point3 to eigen::Vector3d" OFF)
+option(GTSAM_TYPEDEF_POINTS_TO_VECTORS   "Typdef Point2 and Point3 to Eigen::Vector equivalents" OFF)
+option(GTSAM_SUPPORT_NESTED_DISSECTION   "Support Metis-based nested dissection" ON)
+option(GTSAM_TANGENT_PREINTEGRATION      "Use new ImuFactor with integration on tangent space" ON)
 
 # Options relating to MATLAB wrapper
 # TODO: Check for matlab mex binary before handling building of binaries
@@ -89,8 +91,8 @@ if(GTSAM_BUILD_PYTHON AND GTSAM_ALLOW_DEPRECATED_SINCE_V4)
     message(FATAL_ERROR "GTSAM_BUILD_PYTHON and GTSAM_ALLOW_DEPRECATED_SINCE_V4 are both enabled. The python module cannot be compiled with deprecated functions turned on. Turn one of the two options off.")
 endif()
 
-if(GTSAM_INSTALL_MATLAB_TOOLBOX AND GTSAM_USE_VECTOR3_POINTS)
-    message(FATAL_ERROR "GTSAM_INSTALL_MATLAB_TOOLBOX and GTSAM_USE_VECTOR3_POINTS are both enabled. For now, the MATLAB toolbox cannot deal with this yet.  Please turn one of the two options off.")
+if(GTSAM_INSTALL_MATLAB_TOOLBOX AND GTSAM_TYPEDEF_POINTS_TO_VECTORS)
+    message(FATAL_ERROR "GTSAM_INSTALL_MATLAB_TOOLBOX and GTSAM_TYPEDEF_POINTS_TO_VECTORS are both enabled. For now, the MATLAB toolbox cannot deal with this yet.  Please turn one of the two options off.")
 endif()
 
 # Flags for choosing default packaging tools
@@ -190,10 +192,10 @@ if(MKL_FOUND AND GTSAM_WITH_EIGEN_MKL)
     set(EIGEN_USE_MKL_ALL 1) # This will go into config.h - it makes Eigen use MKL
     include_directories(${MKL_INCLUDE_DIR})
     list(APPEND GTSAM_ADDITIONAL_LIBRARIES ${MKL_LIBRARIES})
-    
+
     # --no-as-needed is required with gcc according to the MKL link advisor
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")  
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
     endif()
 else()
     set(GTSAM_USE_EIGEN_MKL 0)
@@ -224,17 +226,17 @@ option(GTSAM_USE_SYSTEM_EIGEN "Find and use system-installed Eigen. If 'off', us
 if(GTSAM_USE_SYSTEM_EIGEN)
 	find_package(Eigen3 REQUIRED)
 	include_directories(AFTER "${EIGEN3_INCLUDE_DIR}")
-	
+
 	# Use generic Eigen include paths e.g. <Eigen/Core>
     set(GTSAM_EIGEN_INCLUDE_PREFIX "${EIGEN3_INCLUDE_DIR}")
-	
+
 	# check if MKL is also enabled - can have one or the other, but not both!
 	# Note: Eigen >= v3.2.5 includes our patches
 	if(EIGEN_USE_MKL_ALL AND (EIGEN3_VERSION VERSION_LESS 3.2.5))
 	  message(FATAL_ERROR "MKL requires at least Eigen 3.2.5, and your system appears to have an older version. Disable GTSAM_USE_SYSTEM_EIGEN to use GTSAM's copy of Eigen, or disable GTSAM_WITH_EIGEN_MKL")
 	endif()
 else()
-	# Use bundled Eigen include path. 
+	# Use bundled Eigen include path.
 	# Clear any variables set by FindEigen3
 	if(EIGEN3_INCLUDE_DIR)
 		set(EIGEN3_INCLUDE_DIR NOTFOUND CACHE STRING "" FORCE)
@@ -242,11 +244,11 @@ else()
 	# Add the bundled version of eigen to the include path so that it can still be included
 	# with  #include <Eigen/Core>
 	include_directories(BEFORE "gtsam/3rdparty/Eigen/")
-	
+
 	# set full path to be used by external projects
 	# this will be added to GTSAM_INCLUDE_DIR by gtsam_extra.cmake.in
 	set(GTSAM_EIGEN_INCLUDE_PREFIX "${CMAKE_INSTALL_PREFIX}/include/gtsam/3rdparty/Eigen/")
-	
+
 endif()
 
 ###############################################################################
@@ -289,18 +291,24 @@ endif()
 
 # Include boost - use 'BEFORE' so that a specific boost specified to CMake
 # takes precedence over a system-installed one.
-# Use 'SYSTEM' to ignore compiler warnings in Boost headers
 include_directories(BEFORE SYSTEM ${Boost_INCLUDE_DIR})
+
+if(GTSAM_SUPPORT_NESTED_DISSECTION)
+  set(METIS_INCLUDE_DIRECTORIES
+    gtsam/3rdparty/metis/include
+    gtsam/3rdparty/metis/libmetis
+    gtsam/3rdparty/metis/GKlib)
+else()
+  set(METIS_INCLUDE_DIRECTORIES)
+endif()
 
 # Add includes for source directories 'BEFORE' boost and any system include
 # paths so that the compiler uses GTSAM headers in our source directory instead
 # of any previously installed GTSAM headers.
 include_directories(BEFORE
-  gtsam/3rdparty/UFconfig
+  gtsam/3rdparty/SuiteSparse_config
   gtsam/3rdparty/CCOLAMD/Include
-  gtsam/3rdparty/metis/include
-  gtsam/3rdparty/metis/libmetis
-  gtsam/3rdparty/metis/GKlib
+  ${METIS_INCLUDE_DIRECTORIES}
   ${PROJECT_SOURCE_DIR}
   ${PROJECT_BINARY_DIR} # So we can include generated config header files
   CppUnitLite)
@@ -362,9 +370,9 @@ if (GTSAM_BUILD_PYTHON)
 
 	# NOTE: The automatic generation of python wrapper from the gtsampy.h interface is
 	#       not working yet, so we're using a handwritten wrapper files on python/handwritten.
-	#       Once the python wrapping from the interface file is working, you can _swap_ the 
+	#       Once the python wrapping from the interface file is working, you can _swap_ the
 	#       comments on the next lines
-	
+
 	# wrap_and_install_python(gtsampy.h "${GTSAM_ADDITIONAL_LIBRARIES}" "")
 	add_subdirectory(python)
 
@@ -478,12 +486,14 @@ message(STATUS "  CPack Source Generator         : ${CPACK_SOURCE_GENERATOR}")
 message(STATUS "  CPack Generator                : ${CPACK_GENERATOR}")
 
 message(STATUS "GTSAM flags                                               ")
-print_config_flag(${GTSAM_USE_QUATERNIONS}             "Quaternions as default Rot3    ")
-print_config_flag(${GTSAM_ENABLE_CONSISTENCY_CHECKS}   "Runtime consistency checking   ")
-print_config_flag(${GTSAM_ROT3_EXPMAP}                 "Rot3 retract is full ExpMap    ")
-print_config_flag(${GTSAM_POSE3_EXPMAP}                "Pose3 retract is full ExpMap   ")
-print_config_flag(${GTSAM_ALLOW_DEPRECATED_SINCE_V4}   "Deprecated in GTSAM 4 allowed  ")
-print_config_flag(${GTSAM_USE_VECTOR3_POINTS}          "Point3 is typedef to Vector3   ")
+print_config_flag(${GTSAM_USE_QUATERNIONS}             "Quaternions as default Rot3     ")
+print_config_flag(${GTSAM_ENABLE_CONSISTENCY_CHECKS}   "Runtime consistency checking    ")
+print_config_flag(${GTSAM_ROT3_EXPMAP}                 "Rot3 retract is full ExpMap     ")
+print_config_flag(${GTSAM_POSE3_EXPMAP}                "Pose3 retract is full ExpMap    ")
+print_config_flag(${GTSAM_ALLOW_DEPRECATED_SINCE_V4}   "Deprecated in GTSAM 4 allowed   ")
+print_config_flag(${GTSAM_TYPEDEF_POINTS_TO_VECTORS}          "Point3 is typedef to Vector3    ")
+print_config_flag(${GTSAM_SUPPORT_NESTED_DISSECTION}   "Metis-based Nested Dissection   ")
+print_config_flag(${GTSAM_TANGENT_PREINTEGRATION}      "Use tangent-space preintegration")
 
 message(STATUS "MATLAB toolbox flags                                      ")
 print_config_flag(${GTSAM_INSTALL_MATLAB_TOOLBOX}      "Install matlab toolbox         ")

@@ -312,6 +312,16 @@ public:
     return Base::equals(camera, tol) && K_->equals(e->calibration(), tol);
   }
 
+  /// stream operator
+  friend std::ostream& operator<<(std::ostream &os, const PinholePose& camera) {
+    os << "{R: " << camera.pose().rotation().rpy().transpose();
+    os << ", t: " << camera.pose().translation().transpose();
+    if (!camera.K_) os << ", K: none";
+    else     os << ", K: " << *camera.K_;
+    os << "}";
+    return os;
+  }
+
   /// print
   void print(const std::string& s = "PinholePose") const {
     Base::print(s);
@@ -326,6 +336,11 @@ public:
   /// @{
 
   virtual ~PinholePose() {
+  }
+
+  /// return shared pointer to calibration
+  const boost::shared_ptr<CALIBRATION>& sharedCalibration() const {
+    return K_;
   }
 
   /// return calibration

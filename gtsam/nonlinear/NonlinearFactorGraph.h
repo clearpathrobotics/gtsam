@@ -1,6 +1,6 @@
 /* ----------------------------------------------------------------------------
 
- * GTSAM Copyright 2010, Georgia Tech Research Corporation, 
+ * GTSAM Copyright 2010, Georgia Tech Research Corporation,
  * Atlanta, Georgia 30332-0415
  * All Rights Reserved
  * Authors: Frank Dellaert, et al. (see THANKS for the full author list)
@@ -24,6 +24,9 @@
 #include <gtsam/geometry/Point2.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/inference/FactorGraph.h>
+
+#include <boost/shared_ptr.hpp>
+#include <functional>
 
 namespace gtsam {
 
@@ -67,7 +70,7 @@ namespace gtsam {
    * A non-linear factor graph is a graph of non-Gaussian, i.e. non-linear factors,
    * which derive from NonlinearFactor. The values structures are typically (in SAM) more general
    * than just vectors, e.g., Rot3 or Pose3, which are objects in non-linear manifolds.
-   * Linearizing the non-linear factor graph creates a linear factor graph on the 
+   * Linearizing the non-linear factor graph creates a linear factor graph on the
    * tangent vector space at the linearization point. Because the tangent space is a true
    * vector space, the config type will be an VectorValues in that linearized factor graph.
    */
@@ -94,8 +97,13 @@ namespace gtsam {
     template<class DERIVEDFACTOR>
     NonlinearFactorGraph(const FactorGraph<DERIVEDFACTOR>& graph) : Base(graph) {}
 
-    /** print just calls base class */
-    void print(const std::string& str = "NonlinearFactorGraph: ", const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
+    /** print */
+    void print(const std::string& str = "NonlinearFactorGraph: ",
+               const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
+
+    /** print errors along with factors*/
+    void printErrors(const Values& values, const std::string& str = "NonlinearFactorGraph: ",
+                     const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
     /** Test equality */
     bool equals(const NonlinearFactorGraph& other, double tol = 1e-9) const;
@@ -105,14 +113,11 @@ namespace gtsam {
       const GraphvizFormatting& graphvizFormatting = GraphvizFormatting(),
       const KeyFormatter& keyFormatter = DefaultKeyFormatter) const;
 
-    /** return keys as an ordered set - ordering is by key value */
-    KeySet keys() const;
-
     /** unnormalized error, \f$ 0.5 \sum_i (h_i(X_i)-z)^2/\sigma^2 \f$ in the most common case */
-    double error(const Values& c) const;
+    double error(const Values& values) const;
 
     /** Unnormalized probability. O(n) */
-    double probPrime(const Values& c) const;
+    double probPrime(const Values& values) const;
 
     /**
      * Create a symbolic factor graph
@@ -134,14 +139,30 @@ namespace gtsam {
      */
     Ordering orderingCOLAMDConstrained(const FastMap<Key, int>& constraints) const;
 
-    /**
-     * linearize a nonlinear factor graph
-     */
+    /// Linearize a nonlinear factor graph
     boost::shared_ptr<GaussianFactorGraph> linearize(const Values& linearizationPoint) const;
 
+    /// typdef for dampen functions used below
+    typedef std::function<void(const boost::shared_ptr<HessianFactor>& hessianFactor)> Dampen;
+
     /**
-     * Clone() performs a deep-copy of the graph, including all of the factors
+     * Instead of producing a GaussianFactorGraph, pre-allocate and linearize directly
+     * into a HessianFactor. Avoids the many mallocs and pointer indirection in constructing
+     * a new graph, and hence useful in case a dense solve is appropriate for your problem.
+     * An optional ordering can be given that still decides how the Hessian is laid out.
+     * An optional lambda function can be used to apply damping on the filled Hessian.
+     * No parallelism is exploited, because all the factors write in the same memory.
      */
+    boost::shared_ptr<HessianFactor> linearizeToHessianFactor(
+        const Values& values, boost::optional<Ordering&> ordering = boost::none,
+        const Dampen& dampen = nullptr) const;
+
+    /// Linearize and solve in one pass.
+    /// Calls linearizeToHessianFactor, densely solves the normal equations, and updates the values.
+    Values updateCholesky(const Values& values, boost::optional<Ordering&> ordering = boost::none,
+                          const Dampen& dampen = nullptr) const;
+
+    /// Clone() performs a deep-copy of the graph, including all of the factors
     NonlinearFactorGraph clone() const;
 
     /**

@@ -25,9 +25,6 @@
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/linear/VectorValues.h>
 
-#include <list>
-
-#include <boost/foreach.hpp>
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -37,6 +34,10 @@
 #pragma GCC diagnostic pop
 #endif
 #include <boost/iterator/transform_iterator.hpp>
+
+#include <list>
+#include <memory>
+#include <sstream>
 
 using namespace std;
 
@@ -48,11 +49,31 @@ namespace gtsam {
   }
 
   /* ************************************************************************* */
+  Values::Values(Values&& other) : values_(std::move(other.values_)) {
+  }
+
+  /* ************************************************************************* */
+  Values::Values(const Values& other, const VectorValues& delta) {
+    for (const_iterator key_value = other.begin(); key_value != other.end(); ++key_value) {
+      VectorValues::const_iterator it = delta.find(key_value->key);
+      Key key = key_value->key;  // Non-const duplicate to deal with non-const insert argument
+      if (it != delta.end()) {
+        const Vector& v = it->second;
+        Value* retractedValue(key_value->value.retract_(v));  // Retract
+        values_.insert(key, retractedValue);  // Add retracted result directly to result values
+      } else {
+        values_.insert(key, key_value->value.clone_());  // Add original version to result values
+      }
+    }
+  }
+
+  /* ************************************************************************* */
   void Values::print(const string& str, const KeyFormatter& keyFormatter) const {
     cout << str << "Values with " << size() << " values:" << endl;
     for(const_iterator key_value = begin(); key_value != end(); ++key_value) {
       cout << "Value " << keyFormatter(key_value->key) << ": ";
       key_value->value.print("");
+      cout << "\n";
     }
   }
 
@@ -78,23 +99,8 @@ namespace gtsam {
   }
 
   /* ************************************************************************* */
-  Values Values::retract(const VectorValues& delta) const
-  {
-    Values result;
-
-    for(const_iterator key_value = begin(); key_value != end(); ++key_value) {
-      VectorValues::const_iterator vector_item = delta.find(key_value->key);
-      Key key = key_value->key;  // Non-const duplicate to deal with non-const insert argument
-      if(vector_item != delta.end()) {
-        const Vector& singleDelta = vector_item->second;
-        Value* retractedValue(key_value->value.retract_(singleDelta)); // Retract
-        result.values_.insert(key, retractedValue); // Add retracted result directly to result values
-      } else {
-        result.values_.insert(key, key_value->value.clone_()); // Add original version to result values
-      }
-    }
-
-    return result;
+  Values Values::retract(const VectorValues& delta) const {
+    return Values(*this, delta);
   }
 
   /* ************************************************************************* */
@@ -113,24 +119,6 @@ namespace gtsam {
   }
 
   /* ************************************************************************* */
-  Vector Values::atFixed(Key j,  size_t n) {
-    switch (n) {
-    case 1: return at<Vector1>(j);
-    case 2: return at<Vector2>(j);
-    case 3: return at<Vector3>(j);
-    case 4: return at<Vector4>(j);
-    case 5: return at<Vector5>(j);
-    case 6: return at<Vector6>(j);
-    case 7: return at<Vector7>(j);
-    case 8: return at<Vector8>(j);
-    case 9: return at<Vector9>(j);
-    default:
-      throw runtime_error(
-          "Values::at fixed size can only handle n in 1..9");
-    }
-  }
-
-  /* ************************************************************************* */
   const Value& Values::at(Key j) const {
     // Find the item
     KeyValueMap::const_iterator item = values_.find(j);
@@ -146,24 +134,6 @@ namespace gtsam {
     std::pair<iterator,bool> insertResult = tryInsert(j, val);
     if(!insertResult.second)
       throw ValuesKeyAlreadyExists(j);
-  }
-
-  /* ************************************************************************* */
-  void Values::insertFixed(Key j, const Vector& v, size_t n) {
-    switch (n) {
-    case 1: insert<Vector1>(j,v); break;
-    case 2: insert<Vector2>(j,v); break;
-    case 3: insert<Vector3>(j,v); break;
-    case 4: insert<Vector4>(j,v); break;
-    case 5: insert<Vector5>(j,v); break;
-    case 6: insert<Vector6>(j,v); break;
-    case 7: insert<Vector7>(j,v); break;
-    case 8: insert<Vector8>(j,v); break;
-    case 9: insert<Vector9>(j,v); break;
-    default:
-      throw runtime_error(
-          "Values::insert fixed size can only handle n in 1..9");
-    }
   }
 
   /* ************************************************************************* */
@@ -229,7 +199,7 @@ namespace gtsam {
   /* ************************************************************************* */
   size_t Values::dim() const {
     size_t result = 0;
-    BOOST_FOREACH(const ConstKeyValuePair& key_value, *this) {
+    for(const ConstKeyValuePair& key_value: *this) {
       result += key_value.value.dim();
     }
     return result;
@@ -238,7 +208,7 @@ namespace gtsam {
   /* ************************************************************************* */
   VectorValues Values::zeroVectors() const {
     VectorValues result;
-    BOOST_FOREACH(const ConstKeyValuePair& key_value, *this)
+    for(const ConstKeyValuePair& key_value: *this)
       result.insert(key_value.key, Vector::Zero(key_value.value.dim()));
     return result;
   }
@@ -266,6 +236,20 @@ namespace gtsam {
       message_ =
           "Attempting to retrieve value with key \"" + DefaultKeyFormatter(key_) + "\", type stored in Values is " +
           std::string(storedTypeId_.name()) + " but requested type was " + std::string(requestedTypeId_.name());
+    return message_.c_str();
+  }
+
+  /* ************************************************************************* */
+  const char* NoMatchFoundForFixed::what() const throw() {
+    if(message_.empty()) {
+      ostringstream oss;
+    oss
+        << "Attempting to retrieve fixed-size matrix with dimensions " //
+        << M1_ << "x" << N1_
+        << ", but found dynamic Matrix with mismatched dimensions " //
+        << M2_ << "x" << N2_;
+      message_ = oss.str();
+    }
     return message_.c_str();
   }
 
